@@ -43,9 +43,8 @@
 #include "hpl1/debug.h"
 #include "hpl1/engine/impl/OcclusionQueryOGL.h"
 #include "hpl1/graphics.h"
-#include "hpl1/opengl.h"
 
-#ifdef USE_OPENGL
+#ifdef HPL1_USE_OPENGL
 
 namespace hpl {
 
@@ -96,11 +95,7 @@ cLowLevelGraphicsSDL::cLowLevelGraphicsSDL() {
 	mvVirtualSize.y = 600;
 	mfGammaCorrection = 1.0;
 	mpRenderTarget = nullptr;
-#ifdef SCUMM_BIG_ENDIAN
-	mpPixelFormat = Graphics::PixelFormat(4, 8, 8, 8, 8, 24, 16, 8, 0);
-#else
-	mpPixelFormat = Graphics::PixelFormat(4, 8, 8, 8, 8, 0, 8, 16, 24);
-#endif
+	mpPixelFormat = Graphics::PixelFormat::createFormatRGBA32();
 
 	Common::fill(mpCurrentTexture, mpCurrentTexture + MAX_TEXTUREUNITS, nullptr);
 
@@ -275,7 +270,7 @@ int cLowLevelGraphicsSDL::GetCaps(eGraphicCaps type) const {
 		return 1; // gl 1.4
 
 	case eGraphicCaps_GL_MultiTexture:
-		return GLAD_GL_ARB_multitexture; // gl 1.4
+		return 1; // gl 1.2.1
 
 	default:
 		break;
@@ -1812,4 +1807,4 @@ void cLowLevelGraphicsSDL::SetMatrixMode(eMatrix type) {
 
 } // namespace hpl
 
-#endif // USE_OPENGL
+#endif // HPL1_USE_OPENGL

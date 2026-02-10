@@ -65,7 +65,7 @@ enum {
 
 static const char *const copyright_text[] = {
 "",
-"C0""Copyright (C) 2001-2024 The ScummVM Team",
+"C0""Copyright (C) 2001-2026 The ScummVM Team",
 "C0""https://www.scummvm.org",
 "",
 "C0""ScummVM is the legal property of its developers, whose names are too numerous to list here. Please refer to the COPYRIGHT file distributed with this binary.",
@@ -142,7 +142,7 @@ AboutDialog::AboutDialog(bool inGame)
 	extensionsInfo += _("CPU extensions support:");
 	addLine(extensionsInfo);
 	Common::U32String compiledExtensionsList("C0");
-	compiledExtensionsList += Common::U32String::format("SSE2(%S) AVX2(%S) NEON(%S)",
+	compiledExtensionsList += Common::U32String::format("SSE2: %S, AVX2: %S, NEON: %S",
 		extensionSupportString[sse2Support].c_str(),
 		extensionSupportString[avx2Support].c_str(),
 		extensionSupportString[neonSupport].c_str());
@@ -379,15 +379,16 @@ void AboutDialog::handleKeyUp(Common::KeyState state) {
 void AboutDialog::reflowLayout() {
 	Dialog::reflowLayout();
 	int i;
-	const int screenW = g_system->getOverlayWidth();
-	const int screenH = g_system->getOverlayHeight();
+
+	int16 screenW, screenH;
+	const Common::Rect screenArea = g_system->getSafeOverlayArea(&screenW, &screenH);
 
 	_xOff = g_gui.xmlEval()->getVar("Globals.About.XOffset", 5);
 	_yOff = g_gui.xmlEval()->getVar("Globals.About.YOffset", 5);
 	int outerBorder = g_gui.xmlEval()->getVar("Globals.About.OuterBorder");
 
-	_w = screenW - 2 * outerBorder;
-	_h = screenH - 2 * outerBorder;
+	_w = screenArea.width() - 2 * outerBorder;
+	_h = screenArea.height() - 2 * outerBorder;
 
 	_lineHeight = g_gui.getFontHeight() + 3;
 
@@ -402,9 +403,12 @@ void AboutDialog::reflowLayout() {
 	}
 	_w += 2*_xOff;
 
-	// Center the dialog
+	// Center the dialog in the screen
 	_x = (screenW - _w) / 2;
 	_y = (screenH - _h) / 2;
+
+	// Make it fit in the safe area
+	screenArea.constrain(_x, _y, _w, _h);
 }
 
 

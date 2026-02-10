@@ -32,7 +32,7 @@ namespace CreateProjectTool {
 // MSVC Provider (Base class)
 //////////////////////////////////////////////////////////////////////////
 MSVCProvider::MSVCProvider(StringList &global_warnings, std::map<std::string, StringList> &project_warnings, StringList &global_errors, const int version, const MSVCVersion &msvc)
-	: ProjectProvider(global_warnings, project_warnings, global_errors, version), _msvcVersion(msvc) {
+	: ProjectProvider(global_warnings, project_warnings, global_errors), _version(version), _msvcVersion(msvc) {
 
 	_enableLanguageExtensions = tokenize(ENABLE_LANGUAGE_EXTENSIONS, ',');
 	_disableEditAndContinue = tokenize(DISABLE_EDIT_AND_CONTINUE, ',');
@@ -139,6 +139,13 @@ std::string MSVCProvider::outputLibraryDependencies(const BuildSetup &setup, boo
 }
 
 void MSVCProvider::createWorkspace(const BuildSetup &setup) {
+	if (setup.useSlnx)
+		createWorkspaceXml(setup);
+	else
+		createWorkspaceClassic(setup);
+}
+
+void MSVCProvider::createWorkspaceClassic(const BuildSetup &setup) {
 	UUIDMap::const_iterator svmUUID = _allProjUuidMap.find(setup.projectName);
 	if (svmUUID == _allProjUuidMap.end())
 		error("No UUID for \"" + setup.projectName + "\" project created");
@@ -211,6 +218,51 @@ void MSVCProvider::createWorkspace(const BuildSetup &setup) {
 	         << "EndGlobal\n";
 }
 
+void MSVCProvider::createWorkspaceXml(const BuildSetup &setup) {
+	const auto svmUUID = _allProjUuidMap.find(setup.projectName);
+	if (svmUUID == _allProjUuidMap.end())
+		error("No UUID for \"" + setup.projectName + "\" project created");
+
+	const std::string &svmProjectUUID = svmUUID->second;
+	assert(!svmProjectUUID.empty());
+	
+	std::ofstream solution((setup.outputDir + '/' + setup.projectName + ".slnx").c_str());
+	if (!solution || !solution.is_open()) {
+		error("Could not open \"" + setup.outputDir + '/' + setup.projectName + ".slnx\" for writing");
+		return;
+	}
+
+	solution << "<Solution>\n";
+
+	solution << "\t<Configurations>\n";
+
+	solution << "\t\t<BuildType Name=\"ASan\" />\n";
+	solution << "\t\t<BuildType Name=\"Debug\" />\n";
+	solution << "\t\t<BuildType Name=\"LLVM\" />\n";
+	solution << "\t\t<BuildType Name=\"Release\" />\n";
+	
+	for (const auto &arch : _archs) {
+		solution << "\t\t<Platform Name=\"" << getMSVCConfigName(arch) << "\" />\n"; 
+	}
+	solution << "\t</Configurations>\n";
+
+	// Write main project
+	if (!setup.devTools) {
+		solution << "\t<Project Path=\"" << setup.projectName << getProjectExtension()
+			<< "\" Id=\"" << svmProjectUUID << "\" "
+			<< " DefaultStartup=\"true\""  /* DefaultStartup has no effect in VS2022, needs VS2026+ */
+			<< " />\n";
+	}
+
+	for (const auto &engineUuid : _engineUuidMap) {
+		solution << "\t<Project Path=\"" << engineUuid.first << getProjectExtension()
+			<< "\" Id=\"" << engineUuid.second
+			<< "\" />\n";
+	}
+	
+	solution << "</Solution>\n";
+}
+
 void MSVCProvider::createOtherBuildFiles(const BuildSetup &setup) {
 	// Create the global property file
 	createGlobalProp(setup);
@@ -249,13 +301,13 @@ void MSVCProvider::createGlobalProp(const BuildSetup &setup) {
 	}
 }
 
-std::string MSVCProvider::getPreBuildEvent() const {
+std::string MSVCProvider::getPreBuildEvent(const BuildSetup &setup) const {
 	std::string cmdLine = "";
 
 	cmdLine = "@echo off\n"
 	          "echo Executing Pre-Build script...\n"
 	          "echo.\n"
-	          "@call &quot;$(SolutionDir)../../devtools/create_project/scripts/prebuild.cmd&quot; &quot;$(SolutionDir)/../..&quot; &quot;$(SolutionDir)&quot;\n"
+	          "@call &quot;$(SolutionDir)" + setup.filePrefix + "/devtools/create_project/scripts/prebuild.cmd&quot; &quot;$(SolutionDir)/" + setup.filePrefix + "&quot; &quot;$(SolutionDir)&quot;\n"
 	          "EXIT /B0";
 
 	return cmdLine;
@@ -268,7 +320,10 @@ std::string MSVCProvider::getTestPreBuildEvent(const BuildSetup &setup) const {
 	for (StringList::const_iterator it = setup.testDirs.begin(); it != setup.testDirs.end(); ++it)
 		target += " $(SolutionDir)" + *it + "*.h";
 
-	return "&quot;$(SolutionDir)../../test/cxxtest/cxxtestgen.py&quot; --runner=ParenPrinter --no-std --no-eh -o &quot;$(SolutionDir)test_runner.cpp&quot;" + target;
+	std::string cmdLine = "";
+	cmdLine = "if not exist \"$(SolutionDir)test\\runner\" mkdir \"$(SolutionDir)test\\runner\"\n"
+	          "python3 &quot;$(SolutionDir)" + setup.filePrefix + "/test/cxxtest/cxxtestgen.py&quot; --runner=ParenPrinter --no-std --no-eh -o &quot;$(SolutionDir)test/runner/test_runner.cpp&quot;" + target;
+	return cmdLine;
 }
 
 std::string MSVCProvider::getPostBuildEvent(MSVC_Architecture arch, const BuildSetup &setup, bool isRelease) const {
@@ -277,7 +332,7 @@ std::string MSVCProvider::getPostBuildEvent(MSVC_Architecture arch, const BuildS
 	cmdLine = "@echo off\n"
 	          "echo Executing Post-Build script...\n"
 	          "echo.\n"
-	          "@call &quot;$(SolutionDir)../../devtools/create_project/scripts/postbuild.cmd&quot; &quot;$(SolutionDir)/../..&quot; &quot;$(OutDir)&quot; ";
+	          "@call &quot;$(SolutionDir)" + setup.filePrefix + "/devtools/create_project/scripts/postbuild.cmd&quot; &quot;$(SolutionDir)" + setup.filePrefix + "&quot; &quot;$(OutDir)&quot; ";
 
 	cmdLine += setup.getSDLName();
 

@@ -88,6 +88,7 @@ void Inter_v7::setupOpcodesDraw() {
 	OPCODEDRAW(0x8C, o7_getSystemProperty);
 	OPCODEDRAW(0x8E, o7_getFileInfo);
 	OPCODEDRAW(0x90, o7_loadImage);
+	OPCODEDRAW(0x91, o7_copyDataToClipboard);
 	OPCODEDRAW(0x93, o7_setVolume);
 	OPCODEDRAW(0x95, o7_zeroVar);
 	OPCODEDRAW(0xA0, o7_draw0xA0);
@@ -147,16 +148,28 @@ void Inter_v7::setupOpcodesFunc() {
 	OPCODEFUNC(0x3F, o7_checkData);
 	OPCODEFUNC(0x4D, o7_readData);
 	OPCODEFUNC(0x4E, o7_writeData);
+	OPCODEFUNC(0x4F, o7_manageDataFile);
 }
 
 void Inter_v7::setupOpcodesGob() {
-	Inter_Playtoons::setupOpcodesGob();
+	OPCODEGOB(0, o7_saveAdi4ExerciseAttemptsCount);
+	OPCODEGOB(1, o7_saveAdi4ExerciseResults);
 
+	OPCODEGOB(55, o7_writeUnknownChildDataToGameVariables);
+	OPCODEGOB(64, o7_writeUnknownAppChildDataToGameVariables);
+	OPCODEGOB(74, o7_writeChildScoreToGameVariables);
+
+	OPCODEGOB(406, o7_startAdi4Application);
+	OPCODEGOB(407, o7_xorDeobfuscate);
+	OPCODEGOB(408, o7_xorObfuscate);
+	OPCODEGOB(410, o7_resolvePath);
 	OPCODEGOB(420, o7_ansiToOEM);
 	OPCODEGOB(421, o7_oemToANSI);
 	OPCODEGOB(512, o7_setDBStringEncoding);
 	OPCODEGOB(513, o7_gob0x201);
 	OPCODEGOB(600, o7_getFreeDiskSpace);
+
+	OPCODEGOB(782, o7_dummy);
 }
 
 void Inter_v7::o7_draw0x0C() {
@@ -457,45 +470,45 @@ void Inter_v7::o7_copyFile() {
 }
 
 void Inter_v7::o7_deleteFile() {
-	Common::String file =_vm->_game->_script->evalString();
+	Common::Path file(_vm->_game->_script->evalString(), '\\');
 
-	debugC(2, kDebugFileIO, "Delete file \"%s\"", file.c_str());
+	debugC(2, kDebugFileIO, "Delete file \"%s\"", file.toString().c_str());
 
-	bool isPattern = file.contains('*') || file.contains('?');
-	Common::List<Common::String> files;
+	bool isPattern = file.toString().contains('*') || file.toString().contains('?');
+	Common::List<Common::Path> files;
 	if (isPattern) {
-		files = _vm->_saveLoad->getFilesMatchingPattern(file.c_str());
-		debugC(2, kDebugFileIO, "Delete file matching pattern \"%s\" (%d matching file(s))", file.c_str(), files.size());
-		for (const Common::String &matchingFile : files)
-			debugC(5, kDebugFileIO, "Matching file: %s", matchingFile.c_str());
+		files = _vm->_saveLoad->getFilesMatchingPattern(file);
+		debugC(2, kDebugFileIO, "Delete file matching pattern \"%s\" (%d matching file(s))", file.toString().c_str(), files.size());
+		for (const Common::Path &matchingFile : files)
+			debugC(5, kDebugFileIO, "Matching file: %s", matchingFile.toString().c_str());
 	} else {
 		files.push_back(file);
-		debugC(2, kDebugFileIO, "Delete file \"%s\"", file.c_str());
+		debugC(2, kDebugFileIO, "Delete file \"%s\"", file.toString().c_str());
 	}
 
 	if (_vm->getGameType() == kGameTypeAdibou2
 		&& isPattern
-		&& file.hasPrefix("DATA\\??????")) {
+		&& file.toString().hasPrefix("DATA/??????")) {
 		// WORKAROUND a bug in original game: files APPLI_<N>.INF and CRITE_<N>.INF should not be deleted when removing character <N>
 		// Those files contain *application <N>* data, not "character <N>" data
-		for (Common::List<Common::String>::iterator it = files.begin(); it != files.end(); ++it) {
-			if (it->matchString("DATA\\\\appli_??.inf", true) || it->matchString("DATA\\\\crite_??.inf", true)) {
+		for (Common::List<Common::Path>::iterator it = files.begin(); it != files.end(); ++it) {
+			if (it->toString().matchString("DATA/appli_??.inf", true) || it->toString().matchString("DATA/crite_??.inf", true)) {
 				debugC(2, kDebugFileIO, "o7_deleteFile: ignoring deletion of file \"%s\" when processing pattern %s (delete character bug workaround)",
-					   it->c_str(),
-					   file.c_str());
+					   it->toString().c_str(),
+					   file.toString().c_str());
 				it = files.reverse_erase(it);
 			}
 		}
 	}
 
-	for (const Common::String &fileToDelete : files) {
-		SaveLoad::SaveMode mode = _vm->_saveLoad->getSaveMode(fileToDelete.c_str());
+	for (const Common::Path &fileToDelete : files) {
+		SaveLoad::SaveMode mode = _vm->_saveLoad->getSaveMode(fileToDelete.toString().c_str());
 		if (mode == SaveLoad::kSaveModeSave) {
-			if (!_vm->_saveLoad->deleteFile(fileToDelete.c_str())) {
-				warning("Cannot delete file \"%s\"", fileToDelete.c_str());
+			if (!_vm->_saveLoad->deleteFile(fileToDelete.toString().c_str())) {
+				warning("Cannot delete file \"%s\"", fileToDelete.toString().c_str());
 			}
 		} else if (mode == SaveLoad::kSaveModeNone)
-			warning("Attempted to delete file \"%s\"", fileToDelete.c_str());
+			warning("Attempted to delete file \"%s\"", fileToDelete.toString().c_str());
 	}
 }
 
@@ -669,7 +682,7 @@ void Inter_v7::o7_playVmdOrMusic() {
 
 		props.startFrame = 0;
 		props.lastFrame = -1;
-	} else if (props.lastFrame == -3) {
+	} else if (props.lastFrame == -3 && _vm->_mult->_objects != nullptr) {
 
 		if (file.empty()) {
 			if (props.flags & 0x400) {
@@ -803,11 +816,11 @@ void Inter_v7::o7_setActiveCD() {
 
 	Common::ArchiveMemberDetailsList files;
 	SearchMan.listMatchingMembers(files, Common::Path(str0, '\\'));
-	Common::String savedCDpath = _currentCDPath;
+	Common::Path savedCDpath = _currentCDPath;
 
 	for (Common::ArchiveMemberDetails file : files) {
 		if (setCurrentCDPath(file.arcName)) {
-			debugC(5, kDebugFileIO, "o7_setActiveCD: %s -> %s", savedCDpath.c_str(),  _currentCDPath.c_str());
+			debugC(5, kDebugFileIO, "o7_setActiveCD: %s -> %s", savedCDpath.toString().c_str(),  _currentCDPath.toString().c_str());
 			storeValue(1);
 			return;
 		}
@@ -833,56 +846,67 @@ void Inter_v7::o7_findFile() {
 	Common::ArchiveMemberList files;
 
 	SearchMan.listMatchingMembers(files, filePattern);
-	Common::ArchiveMemberList filesWithoutDuplicates;
+	Common::List<Common::Path> filePaths;
 	for (Common::ArchiveMemberPtr file : files) {
+		filePaths.push_back(file->getPathInArchive());
+	}
+
+	Common::List<Common::Path> matchingSaveFiles = _vm->_saveLoad->getFilesMatchingPattern(filePattern.toString().c_str());
+	for (Common::Path &filename : matchingSaveFiles) {
+		if (_vm->_saveLoad->getSize(filename.toString().c_str()) >= 0) {
+			filePaths.push_back(filename);
+		}
+	}
+
+	Common::List<Common::Path> filenamesWithoutDuplicates;
+	for (Common::Path &filename : filePaths) {
 		bool found = false;
-		for (Common::ArchiveMemberPtr fileWithoutDuplicates : filesWithoutDuplicates) {
-			if (file->getName() == fileWithoutDuplicates->getName()) {
+		for (Common::Path &filename2 : filenamesWithoutDuplicates) {
+			if (filename == filename2) {
 				found = true;
 				break;
 			}
 		}
 
 		if (!found)
-			filesWithoutDuplicates.push_back(file);
+			filenamesWithoutDuplicates.push_back(filename);
 	}
 
-	debugC(5, kDebugFileIO, "o7_findFile(%s): %d matches (%d including duplicates)",
+	debugC(5, kDebugFileIO, "o7_findFile(%s): %d matches after discarding duplicates",
 		   filePattern.toString().c_str(),
-		   filesWithoutDuplicates.size(),
-		   files.size());
+		   filenamesWithoutDuplicates.size());
 
-	if (filesWithoutDuplicates.empty()) {
+	if (filenamesWithoutDuplicates.empty()) {
 		storeString("");
 		storeValue(0);
 	} else {
-		Common::String file = files.front()->getName();
-		filesWithoutDuplicates.pop_front();
+		Common::Path file = filenamesWithoutDuplicates.front();
+		filenamesWithoutDuplicates.pop_front();
 		debugC(5, kDebugFileIO, "o7_findFile(%s): first match = %s",
 			   filePattern.toString().c_str(),
-			   file.c_str());
+			   file.toString().c_str());
 
-		storeString(file.c_str());
+		storeString(file.getLastComponent().toString().c_str());
 		storeValue(1);
 	}
 
-	_remainingFilesFromPreviousSearch = filesWithoutDuplicates;
+	_findFileMatches = filenamesWithoutDuplicates;
 }
 
 void Inter_v7::o7_findNextFile() {
 	uint16 type;
 	uint16 varIndex = _vm->_game->_script->readVarIndex(0, &type);
 
-	Common::String file;
-	if (!_remainingFilesFromPreviousSearch.empty()) {
-		file = _remainingFilesFromPreviousSearch.front()->getName();
-		_remainingFilesFromPreviousSearch.pop_front();
+	Common::Path file;
+	if (!_findFileMatches.empty()) {
+		file = _findFileMatches.front();
+		_findFileMatches.pop_front();
 	}
 
 	debugC(5, kDebugFileIO, "o7_findNextFile: new match = %s",
-		   file.c_str());
+		   file.toString().c_str());
 
-	storeString(varIndex, type, file.c_str());
+	storeString(varIndex, type, file.getLastComponent().toString().c_str());
 	storeValue(file.empty() ? 0 : 1);
 }
 
@@ -928,9 +952,9 @@ void Inter_v7::o7_getFileInfo() {
 			return;
 		}
 
-		uint32 width = -1;
-		uint32 height = -1;
-		uint32 bpp = -1;
+		uint32 width = (uint32)-1;
+		uint32 height = (uint32)-1;
+		uint32 bpp = (uint32)-1;
 		Surface::getImageInfo(*imageFile, width, height, bpp);
 		if (property == "IMAGELARGEUR")
 			storeValue(resultVar, resultVarType, width);
@@ -1004,6 +1028,11 @@ void Inter_v7::o7_loadImage() {
 	}
 }
 
+void Inter_v7::o7_copyDataToClipboard() {
+	Common::String data = _vm->_game->_script->evalString();
+	warning("STUB: Adi4: Copy data '%s' to clipboard", data.c_str());
+}
+
 void Inter_v7::o7_setVolume() {
 	uint32 volume = _vm->_game->_script->readValExpr();
 
@@ -1024,7 +1053,8 @@ void Inter_v7::o7_draw0xA0() {
 
 
 void Inter_v7::o7_getINIValue() {
-	Common::String file = getFile(_vm->_game->_script->evalString());
+	bool isCd = false;
+	Common::String file = getFile(_vm->_game->_script->evalString(), true, &isCd);
 
 	Common::String section = _vm->_game->_script->evalString();
 	Common::String key     = _vm->_game->_script->evalString();
@@ -1035,7 +1065,7 @@ void Inter_v7::o7_getINIValue() {
 	key     = oemToANSI(key);
 
 	Common::String value;
-	_inis.getValue(value, file, section, key, def);
+	_inis.getValue(value, file, isCd, section, key, def);
 
 	value = ansiToOEM(value);
 
@@ -1044,7 +1074,8 @@ void Inter_v7::o7_getINIValue() {
 }
 
 void Inter_v7::o7_setINIValue() {
-	Common::String file = getFile(_vm->_game->_script->evalString());
+	bool isCd = false;
+	Common::String file = getFile(_vm->_game->_script->evalString(), true, &isCd);
 
 	Common::String section = _vm->_game->_script->evalString();
 	Common::String key     = _vm->_game->_script->evalString();
@@ -1055,7 +1086,7 @@ void Inter_v7::o7_setINIValue() {
 	key     = oemToANSI(key);
 	value   = oemToANSI(value);
 
-	bool success = _inis.setValue(file, section, key, value);
+	bool success = _inis.setValue(file, isCd, section, key, value);
 	WRITE_VAR(27, success ? 1 : 0);
 	debugC(5, kDebugGameFlow, "o7_setINIValue: %s: [%s] %s := %s", file.c_str(), section.c_str(), key.c_str(), value.c_str());
 }
@@ -1438,28 +1469,28 @@ void Inter_v7::o7_draw0xE6() {
 	_vm->_game->_script->readVarIndex();
 	_vm->_game->_script->readVarIndex();
 	warning("STUB: o7_draw0xE6 (Adibou/Musique)");
-};
+}
 
 void Inter_v7::o7_draw0xE7() {
 	_vm->_game->_script->readVarIndex();
 	warning("STUB: o7_draw0xE7 (Adibou/Musique)");
-};
+}
 
 void Inter_v7::o7_draw0xE8() {
 	_vm->_game->_script->readVarIndex();
 	warning("STUB: o7_draw0xE8 (Adibou/Musique)");
-};
+}
 
 void Inter_v7::o7_draw0xE9() {
 	_vm->_game->_script->readVarIndex();
 	_vm->_game->_script->readVarIndex();
 	warning("STUB: o7_draw0xE8 (Adibou/Musique)");
-};
+}
 
 void Inter_v7::o7_draw0xF0() {
 	_vm->_game->_script->readVarIndex();
 	warning("STUB: o7_draw0xF0 (Adibou/Musique)");
-};
+}
 
 void Inter_v7::o7_executeModAddEvent() {
 	_vm->_game->_script->readVarIndex();
@@ -1467,33 +1498,33 @@ void Inter_v7::o7_executeModAddEvent() {
 	_vm->_game->_script->readVarIndex();
 	_vm->_game->_script->readVarIndex();
 	warning("STUB: o7_executeModAddEvent (Adibou/Musique)");
-};
+}
 
 void Inter_v7::o7_executeModSetLength() {
 	_vm->_game->_script->readVarIndex();
 	warning("STUB: o7_executeModSetLength (Adibou/Musique)");
-};
+}
 
 void Inter_v7::o7_executeModStart() {
 	_vm->_game->_script->readVarIndex();
 	warning("STUB: o7_executeModSetLength (Adibou/Musique)");
-};
+}
 
 void Inter_v7::o7_executeModGetPosition() {
 	_vm->_game->_script->readVarIndex();
 	warning("STUB: o7_executeModSetLength (Adibou/Musique)");
-};
+}
 
 void Inter_v7::o7_vmdGetSoundBuffer() {
 	_vm->_game->_script->readValExpr();
 	_vm->_game->_script->readVarIndex();
 	warning("STUB: o7_vmdGetSoundBuffer (Adibou/Musique)");
-};
+}
 
 void Inter_v7::o7_vmdReleaseSoundBuffer() {
 	_vm->_game->_script->readVarIndex();
 	warning("STUB: o7_vmdReleaseSoundBuffer (Adibou/Musique)");
-};
+}
 
 
 void Inter_v7::o7_printText(OpFuncParams &params) {
@@ -1671,7 +1702,7 @@ bool Inter_v7::setCurrentCDPath(const Common::String &newDirName) {
 		return false;
 
 	if (!_currentCDPath.empty())
-		SearchMan.setPriority(_currentCDPath, 0);
+		SearchMan.setPriority(_currentCDPath.toString(), 0);
 
 	_currentCDPath = newDirName;
 	if (!_currentCDPath.empty())
@@ -1926,6 +1957,21 @@ void Inter_v7::o7_writeData(OpFuncParams &params) {
 		warning("Attempted to write to file \"%s\"", file.c_str());
 }
 
+void Inter_v7::o7_manageDataFile(OpFuncParams &params) {
+	Common::String file = _vm->_game->_script->evalString();
+
+	if (!file.empty()) {
+		bool result = _vm->_dataIO->openArchive(Common::Path(file, '\\').toString('/'), true);
+		WRITE_VAR(27, result);
+	} else {
+		_vm->_dataIO->closeArchive(true);
+
+		// NOTE: Lost in Time might close a data file without explicitely closing a video in it.
+		//       So we make sure that all open videos are still available.
+		_vm->_vidPlayer->reopenAll();
+	}
+}
+
 Common::String Inter_v7::ansiToOEM(Common::String string) {
 	Common::U32String u32String = string.decode(Common::kWindows1252);
 	// Replace characters that do not exist in the target codepage with the closest match
@@ -1947,6 +1993,321 @@ Common::String Inter_v7::ansiToOEM(Common::String string) {
 
 Common::String Inter_v7::oemToANSI(Common::String string) {
 	return string.decode(Common::kDos850).encode(Common::kWindows1252);
+}
+
+void Inter_v7::xorObfuscate(byte *str, int len) {
+	if (len <= 1)
+		return;
+
+	for (int i = len - 1; i >= 1; --i)
+		str[i] = str[i] ^ str[i - 1];
+}
+
+void Inter_v7::xorDeobfuscate(byte *str, int len) {
+	if (len <= 1)
+		return;
+
+	for (int i = 1; i < len; ++i)
+		str[i] = str[i] ^ str[i - 1];
+}
+
+bool Inter_v7::readAdi4InfDataForChild(Common::Array<byte> &dest, uint32 childNumber, uint32 offset, uint32 size) {
+	uint32 totalOffset = childNumber * kAdi4InfChildDataSize + offset;
+	assert(size <= dest.size());
+
+	if (!_vm->_saveLoad->loadToRaw("ADI.INF", dest.data(), size, totalOffset))
+		return false;
+
+	xorDeobfuscate(dest.data(), size);
+	return true;
+}
+
+bool Inter_v7::readAdi4InstalledAppsData(Common::Array<byte> &generalChildData,
+										 Common::Array<byte> &appChildData,
+										 uint32 childNbr,
+										 uint32 appliNbr) {
+	if (!readAdi4InfDataForChild(generalChildData, childNbr, 0, kAdi4InfGeneralChildDataSize)) {
+		warning("readAdi4InstalledAppsData: Failed to read general data for child %d in ADI.INF", childNbr);
+		return false;
+	}
+
+	Common::Array<byte> appChildDataPacked(kAdi4InfAppChildDataSize);
+	if (!readAdi4InfDataForChild(appChildDataPacked,
+								 childNbr,
+								 kAdi4InfGeneralChildDataSize + appliNbr * kAdi4InfAppChildDataSize,
+								 kAdi4InfAppChildDataSize)) {
+		warning("readAdi4InstalledAppsData: Failed to read app-specific data for child %d in ADI.INF", childNbr);
+		return false;
+	}
+
+	for (uint32 i = 0; i < kAdi4InfAppChildDataSize; ++i) {
+		appChildData[i] = appChildDataPacked[i] & 3;
+		appChildData[i + kAdi4InfAppChildDataSize] = (appChildDataPacked[i] >> 2) & 3;
+		appChildData[i + 2 * kAdi4InfAppChildDataSize] = (appChildDataPacked[i] >> 4) & 3;
+	}
+
+	return true;
+}
+
+bool Inter_v7::writeAdi4InfDataForChild(const Common::Array<byte> &src, uint32 childNumber, uint32 offset, uint32 size) {
+	int adiInfSize = _vm->_saveLoad->getSize("ADI.INF");
+	if (adiInfSize < 0) {
+		warning("writeAdi4InfDataForChild: ADI.INF file not found");
+		return false;
+	}
+
+	Common::Array<byte> bytesToWrite(size);
+	memcpy(bytesToWrite.data(), src.data(), size);
+	xorObfuscate(bytesToWrite.data(), bytesToWrite.size());
+
+	uint32 totalOffset = childNumber * kAdi4InfChildDataSize + offset;
+	if (totalOffset > (uint32) adiInfSize) {
+		// Offset is past the current size, fill the gap with spaces
+		Common::Array<byte> emptySpace(totalOffset - adiInfSize, ' ');
+		if (!_vm->_saveLoad->saveFromRaw("ADI.INF", emptySpace.data(), emptySpace.size(), adiInfSize))
+			return false;
+	}
+
+	if (!_vm->_saveLoad->saveFromRaw("ADI.INF", bytesToWrite.data(), bytesToWrite.size(), totalOffset))
+		return false;
+
+	return true;
+}
+
+bool Inter_v7::writeAdi4InstalledAppsData(const Common::Array<byte> &generalChildData,
+										 const Common::Array<byte> &appChildData,
+										 uint32 childNbr,
+										 uint32 appliNbr) {
+	if (generalChildData.empty())
+		return false;
+
+	if (!writeAdi4InfDataForChild(generalChildData, childNbr, 0, kAdi4InfGeneralChildDataSize)) {
+		warning("writeAdi4InstalledAppsData: Failed to write general data for child %d in ADI.INF", childNbr);
+		return false;
+	}
+
+	Common::Array<byte> appChildDataPacked(kAdi4InfAppChildDataSize);
+	for (uint32 i = 0; i < kAdi4InfAppChildDataSize; ++i) {
+		appChildDataPacked[i] = (appChildData[i] & 3) |
+								((appChildData[i + kAdi4InfAppChildDataSize] & 3) << 2) |
+								((appChildData[i + 2 * kAdi4InfAppChildDataSize] & 3) << 4);
+	}
+
+	if (!writeAdi4InfDataForChild(appChildDataPacked,
+								  childNbr,
+								  kAdi4InfGeneralChildDataSize + appliNbr * kAdi4InfAppChildDataSize,
+								  kAdi4InfAppChildDataSize)) {
+		warning("readAdi4InstalledAppsData: Failed to write app-specific data for child %d in ADI.INF", childNbr);
+		return false;
+	}
+
+	return true;
+}
+
+void Inter_v7::o7_saveAdi4ExerciseAttemptsCount(OpGobParams &params) {
+	_vm->_game->_script->skip(2);
+	uint16 sectionNumberVar = _vm->_game->_script->readUint16();
+	_vm->_game->_script->skip(2);
+
+	if (_adi4GeneralChildData.empty())
+		return;
+
+	uint16 sectionNumber = READ_VAR_UINT16(sectionNumberVar);
+	if (sectionNumber & 0x80) {
+		_adi4CurrentSectionInGeneralChildData = 0;
+		_adi4CurrentSectionInAppChildData = sectionNumber;
+		return;
+	}
+
+	if (sectionNumber & 0x100) {
+		_adi4CurrentSectionInGeneralChildData = 0;
+		_adi4CurrentSectionInAppChildData = 0;
+		return;
+	}
+
+	_adi4CurrentSectionInGeneralChildData = sectionNumber - 1;
+	if (_adi4CurrentSectionInAppChildData != 0)
+		_adi4CurrentSectionInGeneralChildData = _adi4CurrentSectionInAppChildData & 3;
+
+	uint16 unknownOffset = READ_LE_UINT16(&_adi4GeneralChildData[3]);
+	byte &totalAttemptsCount = _adi4GeneralChildData[2515 + _adi4CurrentAppNbr * 36 + unknownOffset * 3 + _adi4CurrentSectionInGeneralChildData];
+	if (totalAttemptsCount != 0xFF)
+		++totalAttemptsCount;
+}
+
+void Inter_v7::o7_saveAdi4ExerciseResults(OpGobParams &params) {
+	uint16 varIndexExerciseNumber = _vm->_game->_script->readUint16();
+	uint16 varIndexExerciseOutcome = _vm->_game->_script->readUint16();
+
+	if (_adi4GeneralChildData.empty())
+		return;
+
+	uint32 exerciseOutcome = VAR(varIndexExerciseOutcome);
+	if (exerciseOutcome < 10)
+		return; // Not completed
+
+	uint16 exerciseNumber = READ_VAR_UINT16(varIndexExerciseNumber);
+	byte &exerciseCompletionFlag = _adi4CurrentAppChildData[(_adi4CurrentSectionInAppChildData & 3) * 200 + exerciseNumber];
+	if (exerciseOutcome == 12) {
+		// Failed
+		if (exerciseCompletionFlag == 0)
+			exerciseCompletionFlag = 1; // Mark as attempted but not suceeded
+	} else {
+		// Succeeded
+		uint16 unknownOffset = READ_LE_UINT16(&_adi4GeneralChildData[3]);
+		if (exerciseCompletionFlag < 2) {
+			byte *currentScorePtr = &_adi4GeneralChildData[3241];
+			uint16 currentScore = READ_LE_UINT16(currentScorePtr);
+			if ((_adi4CurrentSectionInAppChildData & 80) == 0) {
+				WRITE_UINT16(currentScorePtr, currentScore + 2);
+			} else {
+				WRITE_UINT16(currentScorePtr, currentScore + 1);
+			}
+			byte &firstTimeSuccessCount = _adi4GeneralChildData[1075 + _adi4CurrentAppNbr * 36 + unknownOffset * 3 + _adi4CurrentSectionInGeneralChildData];
+			if (firstTimeSuccessCount != 0xFF)
+				++firstTimeSuccessCount;
+		} else {
+			byte &repeatSuccessCount = _adi4GeneralChildData[1795 + _adi4CurrentAppNbr * 36 + unknownOffset * 3 + _adi4CurrentSectionInGeneralChildData];
+			if (repeatSuccessCount != 0xFF)
+				++repeatSuccessCount;
+		}
+
+		exerciseCompletionFlag = 2;
+	}
+
+	writeAdi4InstalledAppsData(_adi4GeneralChildData,
+							   _adi4CurrentAppChildData,
+							   _adi4CurrentChildNbr,
+							   _adi4CurrentAppNbr);
+}
+
+void Inter_v7::o7_writeUnknownChildDataToGameVariables(OpGobParams &params) {
+	uint16 destVarIndex = _vm->_game->_script->readUint16();
+	_vm->_game->_script->skip(14);
+
+	if (_adi4GeneralChildData.empty())
+		return;
+
+	_vm->_inter->_variables->copyFrom(destVarIndex * 4, &_adi4GeneralChildData[3344], 40);
+	WRITE_VARO_UINT16(destVarIndex * 4 + 39, _adi4CurrentChildNbr);
+}
+
+void Inter_v7::o7_writeUnknownAppChildDataToGameVariables(OpGobParams &params) {
+	uint16 destVarIndex = _vm->_game->_script->readUint16();
+	if (_adi4GeneralChildData.empty())
+		return;
+
+	for (uint32 i = 0; i < kAdi4InfAppChildDataSize; ++i) {
+		WRITE_VARO_UINT8(destVarIndex * 4 + i,
+						_adi4CurrentAppChildData[i + (_adi4CurrentSectionInAppChildData & 3) * kAdi4InfAppChildDataSize] & 3);
+	}
+}
+
+void Inter_v7::o7_writeChildScoreToGameVariables(OpGobParams &params) {
+	uint16 varIndex = _vm->_game->_script->readUint16();
+	if (_adi4GeneralChildData.empty())
+		return;
+
+	WRITE_VAR(varIndex, READ_LE_UINT16(&_adi4GeneralChildData[3241]));
+}
+
+void Inter_v7::o7_startAdi4Application(OpGobParams &params) {
+	uint16 varIndexAppNbr = _vm->_game->_script->readUint16();
+	uint16 varIndexChildNbr = _vm->_game->_script->readUint16();
+
+	_adi4CurrentAppNbr = VAR(varIndexAppNbr);
+	_adi4CurrentChildNbr = VAR(varIndexChildNbr);
+
+	_adi4GeneralChildData.resize(kAdi4InfGeneralChildDataSize);
+	_adi4CurrentAppChildData.resize(3 * kAdi4InfAppChildDataSize, ' ');
+
+	readAdi4InstalledAppsData(_adi4GeneralChildData,
+							  _adi4CurrentAppChildData,
+							  _adi4CurrentChildNbr,
+							  _adi4CurrentAppNbr);
+
+	char appliAbbreviationBuf[4];
+	appliAbbreviationBuf[0] = static_cast<char>(_adi4GeneralChildData[_adi4CurrentAppNbr * 4 + 55]);
+	appliAbbreviationBuf[1] = static_cast<char>(_adi4GeneralChildData[_adi4CurrentAppNbr * 4 + 56]);
+	appliAbbreviationBuf[2] = static_cast<char>(_adi4GeneralChildData[_adi4CurrentAppNbr * 4 + 57]);
+	appliAbbreviationBuf[3] = '\0';
+
+	Common::String appliAbbreviation(appliAbbreviationBuf);
+	byte c = _adi4GeneralChildData[_adi4CurrentAppNbr * 4 + 58];
+
+	Common::String appliDescFilename = "<CD>DESC" + appliAbbreviation;
+	if (c != 0) {
+		appliDescFilename.push_back(static_cast<char>(c));
+	}
+
+	appliDescFilename += ".ADI";
+
+	Common::String appliDescFile = getFile(appliDescFilename.c_str());
+
+	// Ensure the desc file is found
+	if (!_vm->_dataIO->hasFile(appliDescFile)) {
+		warning("o7_startAdi4Application: desc file '%s' not found (application %d, child %d)",
+				appliDescFile.c_str(),
+				_adi4CurrentAppNbr,
+				_adi4CurrentChildNbr);
+		return;
+	}
+
+	if (c == 0) {
+		// Ensure the ADIVMD.TIK file is found
+		if (!_vm->_dataIO->hasFile(getFile("<CD>ADIVMD.TIK"))) {
+			warning("o7_startAdi4Application: desc file '%s' not found (application %d, child %d)",
+					appliDescFile.c_str(),
+					_adi4CurrentAppNbr,
+					_adi4CurrentChildNbr);
+			return;
+		}
+
+		warning("o7_startAdi4Application: c = 0 case stub");
+	} else {
+		Common::String appliStkFile = "ADI" + appliAbbreviation + ".STK";
+		_vm->_dataIO->openArchive(appliStkFile, false);
+
+		Common::String appliIntroTotFile = appliAbbreviation + "INTRO";
+		_vm->_draw->_colorOffset = 10;
+		_vm->_game->totSub(1, appliIntroTotFile);
+		_vm->_draw->_colorOffset = 0;
+
+		_vm->_dataIO->closeArchive(false);
+	}
+
+	_adi4CurrentSectionInAppChildData = 0;
+	_adi4GeneralChildData.clear();
+	_adi4CurrentAppChildData.clear();
+}
+
+void Inter_v7::o7_xorDeobfuscate(OpGobParams &params) {
+	uint16 varIndex = _vm->_game->_script->readUint16();
+	uint16 size = _vm->_game->_script->readUint16();
+	byte *data = _vm->_inter->_variables->getAddressVar8(varIndex);
+	xorDeobfuscate(data, size);
+}
+
+void Inter_v7::o7_xorObfuscate(OpGobParams &params) {
+	uint16 varIndex = _vm->_game->_script->readUint16();
+	byte *data = _vm->_inter->_variables->getAddressVar8(varIndex);
+	uint16 size = _vm->_game->_script->readUint16();
+	xorObfuscate(data, size);
+}
+
+void Inter_v7::o7_resolvePath(OpGobParams &params) {
+	uint16 srcVarIndex = _vm->_game->_script->readUint16();
+	uint16 destVarIndex = _vm->_game->_script->readUint16();
+	char *str = GET_VAR_STR(srcVarIndex);
+	Common::String resolvedPath = getFile(str);
+	if ((int)resolvedPath.size() > 4 * _vm->_global->_inter_animDataSize) {
+		warning("o7_resolvePath: resolved path too long (%d > max length = %d), truncating",
+				(int)resolvedPath.size(),
+				4 * _vm->_global->_inter_animDataSize);
+		resolvedPath = resolvedPath.substr(0, 4 * _vm->_global->_inter_animDataSize);
+	}
+
+	WRITE_VAR_STR(destVarIndex, resolvedPath.c_str());
 }
 
 void Inter_v7::o7_ansiToOEM(OpGobParams &params) {
@@ -1990,6 +2351,10 @@ void Inter_v7::o7_getFreeDiskSpace(OpGobParams &params) {
 	// Those copies are a no-op in ScummVM, so we just return a value high enough to make the game scripts happy.
 	uint16 varIndex = _vm->_game->_script->readUint16();
 	WRITE_VAR(varIndex, 1000000000); // HACK
+}
+
+void Inter_v7::o7_dummy(OpGobParams &params) {
+	_vm->_game->_script->skip(4);
 }
 
 

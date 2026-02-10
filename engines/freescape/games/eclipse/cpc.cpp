@@ -30,6 +30,21 @@ namespace Freescape {
 
 void EclipseEngine::initCPC() {
 	_viewArea = Common::Rect(36 + 3, 24 + 8, 284, 130 + 3);
+	// Sound mappings from TEPROG.BIN disassembly (sub_6D19h call sites)
+	_soundIndexShoot = 5;            // 0x5D80: LD A,05h; CALL 6D19h (type 0x16 destroy)
+	_soundIndexCollide = 12;         // 0x5192/0x5239: deferred via (0CFD9h)
+	_soundIndexStepDown = 12;        // 0x5194/0x5239: small height drop within threshold
+	_soundIndexStepUp = 12;          // same sound for step up (matches ZX version)
+	_soundIndexStart = 3;            // 0x770F/7726/776A: game start transition
+	_soundIndexAreaChange = 7;       // 0x63E0: deferred via (0CFD9h), type 0x12
+	_soundIndexStartFalling = 6;     // 0x797E: falling handler, first phase
+	_soundIndexEndFalling = 8;       // 0x79AC: falling handler, landing
+	_soundIndexFall = 5;             // 0x7D25: death/game-over animation
+	_soundIndexNoShield = 5;         // game-over conditions reuse death sound
+	_soundIndexFallen = 5;
+	_soundIndexTimeout = 5;
+	_soundIndexForceEndGame = 5;
+	_soundIndexCrushed = 5;
 }
 
 byte kCPCPaletteEclipseTitleData[4][3] = {
@@ -47,7 +62,6 @@ byte kCPCPaletteEclipseBorderData[4][3] = {
 };
 
 
-extern Graphics::ManagedSurface *readCPCImage(Common::SeekableReadStream *file, bool mode0);
 
 void EclipseEngine::loadAssetsCPCFullGame() {
 	Common::File file;
@@ -88,24 +102,14 @@ void EclipseEngine::loadAssetsCPCFullGame() {
 		loadFonts(&file, 0x60bc);
 		loadMessagesFixedSize(&file, 0x326, 16, 30);
 		load8bitBinary(&file, 0x62b4, 16);
+		// TODO: loadSoundsCPC for Eclipse 2 - need to determine table offsets from TE2.BI2
 	} else {
 		loadFonts(&file, 0x6076);
 		loadMessagesFixedSize(&file, 0x326, 16, 30);
 		load8bitBinary(&file, 0x626e, 16);
+		// TODO: loadSoundsCPC for full game - need to determine table offsets from TECODE.BIN
 	}
 
-	for (auto &it : _areaMap) {
-		it._value->addStructure(_areaMap[255]);
-
-		if (isEclipse2() && it._value->getAreaID() == 1)
-			continue;
-
-		if (isEclipse2() && it._value->getAreaID() == _startArea)
-			continue;
-
-		for (int16 id = 183; id < 207; id++)
-			it._value->addObjectFromArea(id, _areaMap[255]);
-	}
 	loadColorPalette();
 	swapPalette(1);
 
@@ -135,12 +139,7 @@ void EclipseEngine::loadAssetsCPCDemo() {
 	loadMessagesFixedSize(&file, 0x362, 16, 23);
 	loadMessagesFixedSize(&file, 0x570b, 264, 5);
 	load8bitBinary(&file, 0x65c6, 16);
-	for (auto &it : _areaMap) {
-		it._value->_name = "  NOW TRAINING  ";
-		it._value->addStructure(_areaMap[255]);
-		for (int16 id = 183; id < 207; id++)
-			it._value->addObjectFromArea(id, _areaMap[255]);
-	}
+	loadSoundsCPC(&file, 0x0805, 104, 0x086D, 165, 0x0772, 147);
 	loadColorPalette();
 	swapPalette(1);
 
@@ -184,8 +183,7 @@ void EclipseEngine::drawCPCUI(Graphics::Surface *surface) {
 	} else if (!_currentAreaMessages.empty())
 		drawStringInSurface(_currentArea->_name, 102, 135, back, front, surface);
 
-	Common::String encodedScoreStr = getScoreString(score);
-	drawStringInSurface(encodedScoreStr, 136, 6, back, other, surface);
+	drawScoreString(score, 136, 6, back, other, surface);
 
 	int x = 171;
 	if (shield < 10)
@@ -208,13 +206,11 @@ void EclipseEngine::drawCPCUI(Graphics::Surface *surface) {
 	drawIndicator(surface, 45, 4, 12);
 	drawEclipseIndicator(surface, 228, 0, front, other);
 
-	uint32 blue = _gfx->_texturePixelFormat.ARGBToColor(0xFF, 0x55, 0x55, 0xFF);
-
 	Common::Rect jarBackground(124, 165, 148, 192);
 	surface->fillRect(jarBackground, back);
 
 	Common::Rect jarWater(124, 192 - _gameStateVars[k8bitVariableEnergy], 148, 192);
-	surface->fillRect(jarWater, blue);
+	surface->fillRect(jarWater, color);
 
 	surface->fillRect(Common::Rect(225, 168, 235, 187), front);
 	drawCompass(surface, 229, 177, _yaw, 10, back);

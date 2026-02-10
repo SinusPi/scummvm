@@ -460,7 +460,7 @@ void Room102::daemon() {
 					break;
 				}
 
-				if (++_val5 > 24 && _val5 != -666 && player_commands_allowed()) {
+				if (++_val5 > 24 && player_commands_allowed()) {
 					_val5 = -666;
 					conv_load_and_prepare("conv05", 20, false);
 					conv_export_pointer_curr(&_G(flags)[V016], 0);
@@ -875,8 +875,10 @@ void Room102::daemon() {
 		break;
 
 	case 19:
+	case 28:
 		player_set_commands_allowed(true);
 		break;
+
 
 	case 21:
 		if (_G(flags)[V013]) {
@@ -931,10 +933,6 @@ void Room102::daemon() {
 			_G(kernel).trigger_mode = oldMode;
 			_trigger = -1;
 		}
-		break;
-
-	case 28:
-		player_set_commands_allowed(true);
 		break;
 
 	case 29:
@@ -1025,6 +1023,7 @@ void Room102::daemon() {
 			break;
 
 		case 72:
+		case 76:
 			digi_unload_stream_breaks(STREAMS6);
 			ws_unhide_walker();
 			wilbur_speech("102w011", 28);
@@ -1039,6 +1038,7 @@ void Room102::daemon() {
 			break;
 
 		case 74:
+		case 78:
 			digi_unload_stream_breaks(STREAMS7);
 			ws_unhide_walker();
 			wilbur_speech("102w011", 28);
@@ -1052,24 +1052,12 @@ void Room102::daemon() {
 			series_stream_with_breaks(STREAMS6, "102wi11", 6, 0x100, kCHANGE_WILBUR_ANIMATION);
 			break;
 
-		case 76:
-			digi_unload_stream_breaks(STREAMS6);
-			ws_unhide_walker();
-			wilbur_speech("102w011", 28);
-			break;
-
 		case 77:
 			ws_hide_walker();
 			_G(wilbur_should) = 78;
 			digi_preload_stream_breaks(STREAMS7);
 			series_play("102wi10s", 0x101, 0, -1, 6, 0, 100, 0, 0, 0, -1);
 			series_stream_with_breaks(STREAMS7, "102wi10", 6, 0x100, kCHANGE_WILBUR_ANIMATION);
-			break;
-
-		case 78:
-			digi_unload_stream_breaks(STREAMS7);
-			ws_unhide_walker();
-			wilbur_speech("102w011", 28);
 			break;
 
 		case 79:

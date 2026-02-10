@@ -22,6 +22,7 @@
 #include "common/serializer.h"
 #include "common/config-manager.h"
 #include "common/func.h"
+#include "common/random.h"
 
 #include "engines/nancy/nancy.h"
 #include "engines/nancy/iff.h"
@@ -230,6 +231,19 @@ bool Scene::onStateExit(const NancyState::NancyState nextState) {
 
 void Scene::changeScene(const SceneChangeDescription &sceneDescription) {
 	if (sceneDescription.sceneID == kNoScene || _state == kLoad) {
+		return;
+	}
+
+	// HACK: Nancy 9 tries to reload the same scene when changing
+	// angle/power in scene 5651 (stuck bottle in rocks). This ends up
+	// resetting the scene flags, which makes the angle/power buttons
+	// unresponsive. We avoid reloading the scene in this case, if the
+	// new scene is the same as the current one. This has the negative
+	// side-effect that the button arrows are not updated, but at least
+	// it makes them usable.
+	// TODO: find a better solution for this.
+	if (sceneDescription.sceneID == _sceneState.currentScene.sceneID &&
+		g_nancy->getGameType() == kGameTypeNancy9 && sceneDescription.sceneID == 5651) {
 		return;
 	}
 
@@ -468,11 +482,23 @@ void Scene::playItemCantSound(int16 itemID, bool notHoldingSound) {
 
 		if (item.cantSound.name.size()) {
 			// The inventory data contains a custom "can't" sound for this item
-			g_nancy->_sound->loadSound(item.cantSound);
-			g_nancy->_sound->playSound(item.cantSound);
+			SoundDescription cantSound = item.cantSound;
+			Common::String cantText = item.cantText;
+
+			// For Nancy9 and newer, we have multiple sounds to choose from,
+			// so randomly select one, if available
+			if (g_nancy->getGameType() >= kGameTypeNancy9 && !item.cantSounds[1].name.empty()) {
+				const uint maxSound = item.cantSounds[2].name.empty() ? 1 : 2;
+				uint soundIndex = g_nancy->_randomSource->getRandomNumber(maxSound);
+				cantSound = item.cantSounds[soundIndex];
+				cantText = item.cantTexts[soundIndex];
+			}
+
+			g_nancy->_sound->loadSound(cantSound);
+			g_nancy->_sound->playSound(cantSound);
 
 			if (ConfMan.getBool("subtitles")) {
-				_textbox.addTextLine(item.cantText, inventoryData->captionAutoClearTime);
+				_textbox.addTextLine(cantText, inventoryData->captionAutoClearTime);
 			}
 		} else if (inventoryData->cantSound.name.size()) {
 			// No custom sound, play default "can't" inside inventory data. Should (?) be unreachable
@@ -809,9 +835,13 @@ void Scene::init() {
 
 		// Remove key so clicking on "New Game" in start menu doesn't just reload the save
 		ConfMan.removeKey("save_slot", Common::ConfigManager::kTransientDomain);
+		// Retain the last slot used so the nancy8+ save menu shows its name on top
+		ConfMan.setInt("display_slot", saveSlot, Common::ConfigManager::kTransientDomain);
 	} else {
 		// Normal boot, load default first scene
 		_state = kLoad;
+		// Make sure the nancy8+ save menu doesn't display a save name on new game
+		ConfMan.removeKey("display_slot", Common::ConfigManager::kTransientDomain);
 	}
 
 	// Set relevant event flag when player has won the game at least once

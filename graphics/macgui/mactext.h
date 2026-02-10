@@ -64,6 +64,8 @@ public:
 	void setScrollBar(bool enable);
 	void resizeScrollBar(int w, int h);
 
+	void setAutoSelect(bool enable) { _autoSelect = enable; }
+
 	void render();
 	void undrawCursor();
 	void draw(ManagedSurface *g, int x, int y, int w, int h, int xoff, int yoff);
@@ -85,6 +87,7 @@ public:
 	virtual Common::Point calculateOffset();
 	void setActive(bool active) override;
 	void setEditable(bool editable);
+	void setInputPadding(bool enable){ _addInputPadding = enable; }	
 
 	void setColors(uint32 fg, uint32 bg) override;
 	// set fgcolor for line x
@@ -167,6 +170,7 @@ public:
 	void clearSelection();
 	Common::U32String cutSelection();
 	const SelectedText *getSelectedText() { return &_selectedText; }
+	bool hasSelection() { return _selectedText.endY != -1; }
 
 	int getLineSpacing() { return _canvas._interLinear; }
 
@@ -243,10 +247,15 @@ private:
 
 	int _editableRow;
 
+	bool _addInputPadding;
+
 	bool _inTextSelection;
 	SelectedText _selectedText;
+	bool _selectionIsDirty;
 
 	MacMenu *_menu;
+
+	bool _autoSelect;
 };
 
 int getStringWidth(MacFontRun &format, const Common::U32String &str);

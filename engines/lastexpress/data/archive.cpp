@@ -243,13 +243,13 @@ HPF *ArchiveManager::openHPF(const char *filename) {
 void ArchiveManager::readHD(void *dstBuf, int offset, uint32 size) {
 	if (_hdFilePointer && _hdFilePointer->isOpen()) {
 		if (offset != _hdFilePosition) {	
-			if (!_hdFilePointer->seek(offset * PAGE_SIZE, SEEK_SET)) {
+			if (!_hdFilePointer->seek(offset * MEM_PAGE_SIZE, SEEK_SET)) {
 				error("Error seeking in file \"%s\"", "HD cache file");
 			}
 		}
 
-		uint32 readSize = _hdFilePointer->read(dstBuf, size * PAGE_SIZE);
-		if (readSize != size * PAGE_SIZE) {
+		uint32 readSize = _hdFilePointer->read(dstBuf, size * MEM_PAGE_SIZE);
+		if (readSize != size * MEM_PAGE_SIZE) {
 			error("Error reading from file \"%s\"", "HD cache file");
 		}
 
@@ -260,13 +260,13 @@ void ArchiveManager::readHD(void *dstBuf, int offset, uint32 size) {
 void ArchiveManager::readCD(void *dstBuf, int offset, uint32 size) {
 	if (_cdFilePointer && _cdFilePointer->isOpen()) {
 		if (offset != _cdFilePosition) {
-			if (!_cdFilePointer->seek(offset * PAGE_SIZE, SEEK_SET)) {
+			if (!_cdFilePointer->seek(offset * MEM_PAGE_SIZE, SEEK_SET)) {
 				error("Error seeking in file \"%s\"", "CD cache file");
 			}
 		}
 
-		uint32 readSize = _cdFilePointer->read(dstBuf, size * PAGE_SIZE);
-		if (readSize != size * PAGE_SIZE) {
+		uint32 readSize = _cdFilePointer->read(dstBuf, size * MEM_PAGE_SIZE);
+		if (readSize != size * MEM_PAGE_SIZE) {
 			error("Error reading from file \"%s\"", "CD cache file");
 		}
 
@@ -316,7 +316,7 @@ int ArchiveManager::loadBG(const char *filename) {
 	tbm.width = _engine->getGraphicsManager()->_renderBox1.width;
 	tbm.height = _engine->getGraphicsManager()->_renderBox1.height;
 
-	PixMap *bgSurface = _engine->getGraphicsManager()->_backgroundBuffer;
+	PixMap *bgSurface = _engine->getGraphicsManager()->_frontBuffer;
 
 	if (_engine->getLogicManager()->_doubleClickFlag &&
 		(_engine->mouseHasLeftClicked() || _engine->mouseHasRightClicked()) &&
@@ -368,14 +368,14 @@ int ArchiveManager::loadBG(const char *filename) {
 			}
 
 			if (_engine->getGraphicsManager()->_renderBox1.x) {
-				_engine->getGraphicsManager()->clear(_engine->getGraphicsManager()->_backgroundBuffer, 0, 0, _engine->getGraphicsManager()->_renderBox1.x, 480);
-				_engine->getGraphicsManager()->clear(_engine->getGraphicsManager()->_backgroundBuffer, 640 - _engine->getGraphicsManager()->_renderBox1.x, 0, _engine->getGraphicsManager()->_renderBox1.x, 480);
+				_engine->getGraphicsManager()->clear(_engine->getGraphicsManager()->_frontBuffer, 0, 0, _engine->getGraphicsManager()->_renderBox1.x, 480);
+				_engine->getGraphicsManager()->clear(_engine->getGraphicsManager()->_frontBuffer, 640 - _engine->getGraphicsManager()->_renderBox1.x, 0, _engine->getGraphicsManager()->_renderBox1.x, 480);
 			}
 
 			if (_engine->getGraphicsManager()->_renderBox1.y) {
-				_engine->getGraphicsManager()->clear(_engine->getGraphicsManager()->_backgroundBuffer, _engine->getGraphicsManager()->_renderBox1.x, 0, _engine->getGraphicsManager()->_renderBox1.width, _engine->getGraphicsManager()->_renderBox1.y);
+				_engine->getGraphicsManager()->clear(_engine->getGraphicsManager()->_frontBuffer, _engine->getGraphicsManager()->_renderBox1.x, 0, _engine->getGraphicsManager()->_renderBox1.width, _engine->getGraphicsManager()->_renderBox1.y);
 				_engine->getGraphicsManager()->clear(
-					_engine->getGraphicsManager()->_backgroundBuffer,
+					_engine->getGraphicsManager()->_frontBuffer,
 					_engine->getGraphicsManager()->_renderBox1.x,
 					480 - _engine->getGraphicsManager()->_renderBox1.y,
 					_engine->getGraphicsManager()->_renderBox1.width,
@@ -389,7 +389,7 @@ int ArchiveManager::loadBG(const char *filename) {
 				return -1;
 
 			} else {
-				_engine->getGraphicsManager()->copy(_engine->getGraphicsManager()->_backgroundBuffer, _engine->getGraphicsManager()->_screenBuffer, 0, 0, 640, 480);
+				_engine->getGraphicsManager()->copy(_engine->getGraphicsManager()->_frontBuffer, _engine->getGraphicsManager()->_backBuffer, 0, 0, 640, 480);
 
 				if (tbm.x      != _engine->getGraphicsManager()->_renderBox1.x     ||
 					tbm.y      != _engine->getGraphicsManager()->_renderBox1.y     ||
@@ -420,9 +420,9 @@ int ArchiveManager::loadBG(const char *filename) {
 			}
 		}
 	} else {
-		memset(_engine->getGraphicsManager()->_screenBuffer, 0, (640 * 480 * sizeof(PixMap)));
+		memset(_engine->getGraphicsManager()->_backBuffer, 0, (640 * 480 * sizeof(PixMap)));
 
-		_engine->getGraphicsManager()->copy(_engine->getGraphicsManager()->_screenBuffer, _engine->getGraphicsManager()->_backgroundBuffer, 0, 0, 640, 480);
+		_engine->getGraphicsManager()->copy(_engine->getGraphicsManager()->_backBuffer, _engine->getGraphicsManager()->_frontBuffer, 0, 0, 640, 480);
 		_engine->getGraphicsManager()->_renderBox1.x = 0;
 		_engine->getGraphicsManager()->_renderBox1.y = 0;
 		_engine->getGraphicsManager()->_renderBox1.width = 640;
@@ -448,7 +448,7 @@ Seq *ArchiveManager::loadSeq(const char *filename, uint8 ticksToWaitUntilCycleRe
 	if (!archive)
 		return nullptr;
 
-	byte *seqDataRaw = (byte *)_engine->getMemoryManager()->allocMem(PAGE_SIZE * archive->size, filename, character);
+	byte *seqDataRaw = (byte *)_engine->getMemoryManager()->allocMem(MEM_PAGE_SIZE * archive->size, filename, character);
 	if (!seqDataRaw)
 		return nullptr;
 
@@ -458,7 +458,7 @@ Seq *ArchiveManager::loadSeq(const char *filename, uint8 ticksToWaitUntilCycleRe
 		_engine->getSoundManager()->soundThread();
 		_engine->getSubtitleManager()->subThread();
 		readHPF(archive, seqDataRawCur, 8);
-		seqDataRawCur += (PAGE_SIZE * 8);
+		seqDataRawCur += (MEM_PAGE_SIZE * 8);
 	}
 
 	readHPF(archive, seqDataRawCur, i);
@@ -469,7 +469,7 @@ Seq *ArchiveManager::loadSeq(const char *filename, uint8 ticksToWaitUntilCycleRe
 	// Again, there is no such thing in the original...
 	seq->rawSeqData = seqDataRaw;
 
-	Common::SeekableReadStream *seqDataStream = new Common::MemoryReadStream(seqDataRaw, PAGE_SIZE * archive->size, DisposeAfterUse::NO);
+	Common::SeekableReadStream *seqDataStream = new Common::MemoryReadStream(seqDataRaw, MEM_PAGE_SIZE * archive->size, DisposeAfterUse::NO);
 
 	seq->numFrames = seqDataStream->readUint32LE();
 	seqDataStream->readUint32LE(); // Empty sprite pointer
@@ -526,10 +526,16 @@ Seq *ArchiveManager::loadSeq(const char *filename, uint8 ticksToWaitUntilCycleRe
 		seqDataStream->readUint32LE(); // Empty "next" sprite pointer
 	}
 
+	delete seqDataStream;
+
 	// Where 68 is the original size of the Sprite struct and 8 is the
 	// offset from the start of the sequence data to the begining of the
 	// sprite data...
 	uint16 *paletteAddr = (uint16 *)&seqDataRaw[8 + 68 * seq->numFrames]; 
+
+	for (int j = 0; j < 184; j++) {
+		paletteAddr[j] = READ_LE_UINT16(&paletteAddr[j]);
+	}
 
 	_engine->getGraphicsManager()->modifyPalette(paletteAddr, 184);
 	return seq;
@@ -541,6 +547,16 @@ void ArchiveManager::loadMice() {
 	if (archive) {
 		readHPF(archive, _engine->_cursorsMemoryPool, archive->size);
 		closeHPF(archive);
+
+		for (int i = 0; i < 0xC000; i++) {
+			_engine->getGraphicsManager()->_iconsBitmapData[i] = (PixMap)READ_LE_UINT16(&_engine->getGraphicsManager()->_iconsBitmapData[i]);
+		}
+
+		for (int i = 0; i < 48; i++) {
+			_engine->getGraphicsManager()->_cursorsDataHeader[i].hotspotX = READ_LE_INT16(&_engine->getGraphicsManager()->_cursorsDataHeader[i].hotspotX);
+			_engine->getGraphicsManager()->_cursorsDataHeader[i].hotspotY = READ_LE_INT16(&_engine->getGraphicsManager()->_cursorsDataHeader[i].hotspotY);
+		}
+
 		_engine->getGraphicsManager()->modifyPalette(_engine->getGraphicsManager()->_iconsBitmapData, 0xC000);
 	}
 }

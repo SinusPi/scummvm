@@ -144,10 +144,18 @@ void LogicManager::CONS_DemoAnna_WaitRCClear(CONS_PARAMS) {
 }
 
 void LogicManager::HAND_DemoAnna_WaitRCClear(HAND_PARAMS) {
-	if ((msg->action == 0 && rcClear()) && (msg->action == 12 && rcClear())) {
-		getCharacter(kCharacterAnna).currentCall--;
-		_engine->getMessageManager()->setMessageHandle(kCharacterAnna, _functionsDemoAnna[getCharacter(kCharacterAnna).callbacks[getCharacter(kCharacterAnna).currentCall]]);
-		fedEx(kCharacterAnna, kCharacterAnna, 18, 0);
+	switch (msg->action) {
+	case 0:
+	case 12:
+		if (rcClear()) {
+			getCharacter(kCharacterAnna).currentCall--;
+			_engine->getMessageManager()->setMessageHandle(kCharacterAnna, _functionsDemoAnna[getCharacter(kCharacterAnna).callbacks[getCharacter(kCharacterAnna).currentCall]]);
+			fedEx(kCharacterAnna, kCharacterAnna, 18, 0);
+		}
+
+		break;
+	default:
+		break;
 	}
 }
 
@@ -298,7 +306,7 @@ void LogicManager::HAND_DemoAnna_GoBagg(HAND_PARAMS) {
 			DemoAnnaCall(&LogicManager::CONS_DemoAnna_FinishSeqOtis, 0, 0, 0, 0);
 			break;
 		case 5:
-			_globals[kProgressField4C] = 1;
+			_globals[kGlobalUnknownDebugFlag] = 1;
 			endGraphics(kCharacterAnna);
 			CONS_DemoAnna_InBagg(0, 0, 0, 0);
 			break;
@@ -338,7 +346,7 @@ void LogicManager::HAND_DemoAnna_InBagg(HAND_PARAMS) {
 		break;
 	case 12:
 		getCharacter(kCharacterAnna).characterPosition.car = kCarBaggage;
-		_globals[kProgressField54] = 1;
+		_globals[kGlobalAnnaIsInBaggageCar] = 1;
 		break;
 	case 235856512:
 		getCharacterCurrentParams(kCharacterAnna)[0] = 1;
@@ -414,13 +422,13 @@ void LogicManager::HAND_DemoAnna_BaggageFight(HAND_PARAMS) {
 			} else {
 				_gameTime = 2268000;
 				getCharacter(kCharacterAnna).callbacks[getCharacter(kCharacterAnna).currentCall + 8] = 3;
-				DemoAnnaCall(&LogicManager::CONS_DemoAnna_SaveGame, 2, kEventAnnaBagagePart2, 0, 0);
+				DemoAnnaCall(&LogicManager::CONS_DemoAnna_SaveGame, 2, kEventAnnaBaggagePart2, 0, 0);
 			}
 
 			break;
 		case 3:
-			playNIS(kEventAnnaBagagePart2);
-			_globals[kProgressField54] = 0;
+			playNIS(kEventAnnaBaggagePart2);
+			_globals[kGlobalAnnaIsInBaggageCar] = 0;
 			forceJump(kCharacterVesna, &LogicManager::CONS_DemoVesna_InComp);
 			winGame();
 			break;

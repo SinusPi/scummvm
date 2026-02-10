@@ -30,13 +30,25 @@
 #include "lastexpress/graphics.h"
 #include "lastexpress/lastexpress.h"
 
+#include "common/config-manager.h"
+
 namespace LastExpress {
 
 Menu::Menu(LastExpressEngine *engine) {
 	_engine = engine;
 
 	if (_engine->isDemo())
-		_eggTimerDelta = 2700;
+		_eggTimerDelta = DEMO_TIMEOUT;
+}
+
+Menu::~Menu() {
+	for (int i = 0; i < 8; i++) {
+		if (_menuSeqs[i]) {
+			_engine->getMemoryManager()->freeMem(_menuSeqs[i]->rawSeqData);
+			delete _menuSeqs[i];
+			_menuSeqs[i] = nullptr;
+		}
+	}
 }
 
 void Menu::doEgg(bool doSaveGame, int type, int32 time) {
@@ -44,7 +56,7 @@ void Menu::doEgg(bool doSaveGame, int type, int32 time) {
 		_isShowingMenu = true;
 
 		if (_engine->isDemo())
-			_eggTimerDelta = 2700;
+			_eggTimerDelta = DEMO_TIMEOUT;
 
 		_engine->getOtisManager()->wipeAllGSysInfo();
 
@@ -67,6 +79,8 @@ void Menu::doEgg(bool doSaveGame, int type, int32 time) {
 				while (_engine->getSoundFrameCounter() < delay) {
 					if (_engine->mouseHasRightClicked())
 						break;
+
+					 _engine->waitForTimer(4);
 					_engine->getSoundManager()->soundThread();
 				}
 			}
@@ -100,22 +114,22 @@ void Menu::doEgg(bool doSaveGame, int type, int32 time) {
 		_engine->getGraphicsManager()->newMouseLoc();
 		_engine->getGraphicsManager()->setMouseDrawable(oldShouldRedraw);
 
-		_engine->getMessageManager()->setEventHandle(1, &LastExpressEngine::eggMouseWrapper);
-		_engine->getMessageManager()->setEventHandle(3, &LastExpressEngine::eggTimerWrapper);
+		_engine->getMessageManager()->setEventHandle(kEventChannelMouse, &LastExpressEngine::eggMouseWrapper);
+		_engine->getMessageManager()->setEventHandle(kEventChannelTimer, &LastExpressEngine::eggTimerWrapper);
 
 		_menuSeqs[1] = _engine->getArchiveManager()->loadSeq("buttns.seq", 15, 0);
 		_menuSeqs[0] = _engine->getArchiveManager()->loadSeq("helpnewr.seq", 15, 0);
 		switchEggs(_engine->_currentGameFileColorId);
 		updateEgg();
 
-		_engine->getMessageManager()->setEventHandle(1, &LastExpressEngine::eggMouseWrapper);
-		_engine->getMessageManager()->setEventHandle(3, &LastExpressEngine::eggTimerWrapper);
+		_engine->getMessageManager()->setEventHandle(kEventChannelMouse, &LastExpressEngine::eggMouseWrapper);
+		_engine->getMessageManager()->setEventHandle(kEventChannelTimer, &LastExpressEngine::eggTimerWrapper);
 	}
 }
 
 void Menu::endEgg() {
-	_engine->getMessageManager()->setEventHandle(1, &LastExpressEngine::nodeStepMouseWrapper);
-	_engine->getMessageManager()->setEventHandle(3, &LastExpressEngine::nodeStepTimerWrapper);
+	_engine->getMessageManager()->setEventHandle(kEventChannelMouse, &LastExpressEngine::nodeStepMouseWrapper);
+	_engine->getMessageManager()->setEventHandle(kEventChannelTimer, &LastExpressEngine::nodeStepTimerWrapper);
 
 	eggFree();
 	_engine->getVCR()->free();
@@ -136,7 +150,7 @@ void Menu::eggFree() {
 
 void Menu::eggMouse(Event *event) {
 	if (_engine->isDemo())
-		_eggTimerDelta = 2700;
+		_eggTimerDelta = DEMO_TIMEOUT;
 
 	if (_engine->getGraphicsManager()->canDrawMouse()) {
 		bool redrawMouse = true;
@@ -207,7 +221,7 @@ void Menu::eggTimer(Event *event) {
 		_moveClockHandsFlag = false;
 	}
 
-	if (!_eggTimerDelta--) {
+	if (!--_eggTimerDelta) {
 		if (_engine->isDemo()) {
 			endEgg();
 
@@ -292,8 +306,10 @@ bool Menu::eggCursorAction(int8 action, int8 flags) {
 		if ((flags & kMouseFlagLeftDown) != 0) {
 			setSprite(2, 11, true);
 
-			_engine->getSoundManager()->killAllSlots();
-			_engine->getSoundManager()->soundThread();
+			if (!ConfMan.getBool("confirm_exit")) {
+				_engine->getSoundManager()->killAllSlots();
+				_engine->getSoundManager()->soundThread();
+			}
 
 			if (_engine->isDemo()) {
 				_engine->getSoundManager()->playSoundFile("LIB046.SND", 16, 0, 0);
@@ -301,16 +317,28 @@ bool Menu::eggCursorAction(int8 action, int8 flags) {
 				_engine->getLogicManager()->playDialog(0, "LIB046", -1, 0);
 			}
 
-			while (_engine->getLogicManager()->dialogRunning("LIB046"))
+			while (_engine->getLogicManager()->dialogRunning("LIB046")) {
 				_engine->getSoundManager()->soundThread();
+				_engine->waitForTimer(4);
+			}
 
 			g_system->delayMillis(334);
 
 			_engine->getGraphicsManager()->setMouseDrawable(false);
-			endEgg();
 
-			_engine->quitGame();
+			if (!ConfMan.getBool("confirm_exit")) {
+				endEgg();
+			}
+
+			Common::Event event;
+			event.type = Common::EVENT_QUIT;
+			g_system->getEventManager()->pushEvent(event);
+
 			_engine->_exitFromMenuButton = true;
+
+			if (ConfMan.getBool("confirm_exit")) {
+				return true;
+			}
 		} else {
 			setSprite(2, 10, true);
 			return true;
@@ -336,8 +364,8 @@ bool Menu::eggCursorAction(int8 action, int8 flags) {
 		}
 
 		int whichCD = 1;
-		if (_engine->getLogicManager()->_globals[kProgressChapter] > 1)
-			whichCD = (_engine->getLogicManager()->_globals[kProgressChapter] > 3) + 2;
+		if (_engine->getLogicManager()->_globals[kGlobalChapter] > 1)
+			whichCD = (_engine->getLogicManager()->_globals[kGlobalChapter] > 3) + 2;
 
 		if (_engine->isDemo()) {
 			if (!_gameInNotStartedInFile) {
@@ -359,7 +387,7 @@ bool Menu::eggCursorAction(int8 action, int8 flags) {
 			_engine->getLogicManager()->loadTrain(whichCD);
 			setSprite(0, -1, true);
 			_engine->getSoundManager()->playSoundFile("LIB046.SND", 16, 0, 0);
-			_engine->getMessageManager()->reset();
+			_engine->getMessageManager()->clearMessageQueue();
 			endEgg();
 
 			Slot *slot = _engine->getSoundManager()->_soundCache;
@@ -410,7 +438,7 @@ bool Menu::eggCursorAction(int8 action, int8 flags) {
 			setSprite(0, -1, true);
 
 			_engine->getLogicManager()->playDialog(0, "LIB046", -1, 0);
-			_engine->getMessageManager()->reset();
+			_engine->getMessageManager()->clearMessageQueue();
 			endEgg();
 
 			if (!_engine->_currentSavePoint) {
@@ -904,6 +932,7 @@ bool Menu::eggCursorAction(int8 action, int8 flags) {
 
 		do {
 			_engine->getSoundManager()->soundThread();
+			_engine->waitForTimer(4);
 		} while (delay > _engine->getSoundFrameCounter());
 
 		return true;
@@ -940,6 +969,7 @@ bool Menu::eggCursorAction(int8 action, int8 flags) {
 
 				do {
 					_engine->getSoundManager()->soundThread();
+					_engine->waitForTimer(4);
 				} while (_engine->getSoundFrameCounter() < delay);
 
 				return true;
@@ -992,10 +1022,10 @@ bool Menu::eggCursorAction(int8 action, int8 flags) {
 		setSprite(0, 11, false);
 		setSprite(2, 5, false);
 
-		_engine->getSpriteManager()->drawCycleSimple(_engine->getGraphicsManager()->_backgroundBuffer);
+		_engine->getSpriteManager()->drawCycleSimple(_engine->getGraphicsManager()->_frontBuffer);
 
 		if (_engine->getGraphicsManager()->acquireSurface()) {
-			_engine->getGraphicsManager()->copy(_engine->getGraphicsManager()->_backgroundBuffer, (PixMap *)_engine->getGraphicsManager()->_screenSurface.getPixels(), 0, 0, 640, 480);
+			_engine->getGraphicsManager()->copy(_engine->getGraphicsManager()->_frontBuffer, (PixMap *)_engine->getGraphicsManager()->_screenSurface.getPixels(), 0, 0, 640, 480);
 			_engine->getGraphicsManager()->unlockSurface();
 		}
 
@@ -1039,9 +1069,9 @@ bool Menu::eggCursorAction(int8 action, int8 flags) {
 					setSprite(0, 10, false);
 					setSprite(2, 9, false);
 
-					_engine->getSpriteManager()->drawCycleSimple(_engine->getGraphicsManager()->_backgroundBuffer);
+					_engine->getSpriteManager()->drawCycleSimple(_engine->getGraphicsManager()->_frontBuffer);
 					if (_engine->getGraphicsManager()->acquireSurface()) {
-						_engine->getGraphicsManager()->copy(_engine->getGraphicsManager()->_backgroundBuffer, (PixMap *)_engine->getGraphicsManager()->_screenSurface.getPixels(), 0, 0, 640, 480);
+						_engine->getGraphicsManager()->copy(_engine->getGraphicsManager()->_frontBuffer, (PixMap *)_engine->getGraphicsManager()->_screenSurface.getPixels(), 0, 0, 640, 480);
 						_engine->getGraphicsManager()->unlockSurface();
 					}
 
@@ -1088,7 +1118,7 @@ void Menu::setCity(int cityIndex) {
 
 void Menu::switchEggs(int whichEgg) {
 	_engine->getSpriteManager()->destroySprite(&_startMenuFrames[3], false);
-	_engine->getSpriteManager()->drawCycleSimple(_engine->getGraphicsManager()->_backgroundBuffer);
+	_engine->getSpriteManager()->drawCycleSimple(_engine->getGraphicsManager()->_frontBuffer);
 
 	if (_menuSeqs[3]) {
 		_engine->getMemoryManager()->freeMem(_menuSeqs[3]->rawSeqData);

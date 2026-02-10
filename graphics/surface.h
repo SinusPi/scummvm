@@ -100,6 +100,8 @@ public:
 	Surface() : w(0), h(0), pitch(0), pixels(0), format() {
 	}
 
+	Common::Rect getRect() const;
+
 	/**
 	 * Return a pointer to the pixel data.
 	 *
@@ -289,7 +291,7 @@ public:
 	/**
 	 * Clip the given source bounds so the passed destBounds will be entirely on-screen.
 	 */
-	bool clip(Common::Rect &srcBounds, Common::Rect &destBounds) const;
+	bool clip(Common::Rect &srcBounds, Common::Rect &destBounds, uint src_w = 0, uint src_h = 0, byte flip = FLIP_NONE) const;
 
 	/**
 	 * Copy a bitmap to the internal buffer of the surface.
@@ -529,6 +531,7 @@ public:
 	 * @param gKey  the green component of the color key
 	 * @param bKey  the blue component of the color key
 	 * @param overwriteAlpha if true, all other alpha will be set fully opaque
+	 * @return true if a color key was applied, otherwise false.
 	 */
 	bool applyColorKey(uint8 rKey, uint8 gKey, uint8 bKey, bool overwriteAlpha = false);
 
@@ -541,6 +544,7 @@ public:
 	 * @param rNew  the red component to replace the color key with
 	 * @param gNew  the green component to replace the color key with
 	 * @param bNew  the blue component to replace the color key with
+	 * @return true if a color key was applied, otherwise false.
 	 */
 	bool applyColorKey(uint8 rKey, uint8 gKey, uint8 bKey, bool overwriteAlpha,
 	                   uint8 rNew, uint8 gNew, uint8 bNew);

@@ -49,6 +49,7 @@ public:
 	Graphics::ManagedSurface *_menuFxOffIndicator;
 	Graphics::ManagedSurface *_menu;
 
+	void beforeStarting() override;
 	void initKeymaps(Common::Keymap *engineKeyMap, Common::Keymap *infoScreenKeyMap, const char *target) override;
 	void initGameState() override;
 	void endGame() override;
@@ -73,9 +74,12 @@ public:
 	void drawCPCUI(Graphics::Surface *surface) override;
 	void drawAmigaAtariSTUI(Graphics::Surface *surface) override;
 	void drawEnergyMeter(Graphics::Surface *surface, Common::Point origin);
+	void drawLiftingGate(Graphics::Surface *surface);
+	void drawDroppingGate(Graphics::Surface *surface);
 	void pressedKey(const int keycode) override;
 	void checkSensors() override;
 	void updateTimeVariables() override;
+	void drawBackground() override;
 
 	bool checkIfGameEnded() override;
 	void drawSensorShoot(Sensor *sensor) override;
@@ -99,11 +103,19 @@ public:
 	Common::Array<Graphics::ManagedSurface *> loadFramesWithHeader(Common::SeekableReadStream *file, int pos, int numFrames, uint32 front, uint32 back);
 	Graphics::ManagedSurface *loadFrameWithHeader(Common::SeekableReadStream *file, int pos, uint32 front, uint32 back);
 	Graphics::ManagedSurface *loadFrame(Common::SeekableReadStream *file, Graphics::ManagedSurface *surface, int width, int height, uint32 back);
+
+	// CPC-specific frame loading (Mode 1: 4 pixels per byte)
+	// cpcPalette is a 4-entry array mapping CPC ink numbers (0-3) to ARGB colors
+	Common::Array<Graphics::ManagedSurface *> loadFramesWithHeaderCPC(Common::SeekableReadStream *file, int pos, int numFrames, const uint32 *cpcPalette);
+	Graphics::ManagedSurface *loadFrameWithHeaderCPC(Common::SeekableReadStream *file, int pos, const uint32 *cpcPalette);
+	Graphics::ManagedSurface *loadFrameCPC(Common::SeekableReadStream *file, Graphics::ManagedSurface *surface, int width, int height, const uint32 *cpcPalette);
+
 	Graphics::ManagedSurface *loadFrameFromPlanes(Common::SeekableReadStream *file, int widthInBytes, int height);
 	Graphics::ManagedSurface *loadFrameFromPlanesInternal(Common::SeekableReadStream *file, Graphics::ManagedSurface *surface, int width, int height);
 
 	Graphics::ManagedSurface *loadFrameFromPlanesVertical(Common::SeekableReadStream *file, int widthInBytes, int height);
 	Graphics::ManagedSurface *loadFrameFromPlanesInternalVertical(Common::SeekableReadStream *file, Graphics::ManagedSurface *surface, int width, int height, int plane);
+	Graphics::ManagedSurface *loadFrameFromPlanesInterleaved(Common::SeekableReadStream *file, int widthInWords, int height);
 
 	Common::Array<Graphics::ManagedSurface *>_keysBorderFrames;
 	Common::Array<Graphics::ManagedSurface *>_keysMenuFrames;
@@ -114,7 +126,8 @@ public:
 	Graphics::ManagedSurface *_strenghtBarFrame;
 	Common::Array<Graphics::ManagedSurface *> _strenghtWeightsFrames;
 	Common::Array<Graphics::ManagedSurface *> _flagFrames;
-	Graphics::ManagedSurface *_thunderFrame;
+	Common::Array<Graphics::ManagedSurface *> _thunderFrames;
+
 	Graphics::ManagedSurface *_riddleTopFrame;
 	Graphics::ManagedSurface *_riddleBackgroundFrame;
 	Graphics::ManagedSurface *_riddleBottomFrame;
@@ -123,6 +136,7 @@ public:
 	Graphics::ManagedSurface *_endGameBackgroundFrame;
 	Graphics::ManagedSurface *_gameOverBackgroundFrame;
 
+	Common::Array<byte> _modData; // Embedded ProTracker module (Amiga demo)
 	Common::Array<int> _keysCollected;
 	bool _useRockTravel;
 	int _spiritsMeter;
@@ -131,6 +145,7 @@ public:
 	int _spiritsToKill;
 
 	int _lastTenSeconds;
+	int _soundIndexStartFalling;
 
 private:
 	Common::SeekableReadStream *decryptFile(const Common::Path &filename);
@@ -143,8 +158,16 @@ private:
 	void tryToCollectKey();
 	void addGhosts();
 	bool ghostInArea();
+	void updateThunder();
+
+	Audio::SoundHandle _soundFxGhostHandle;
 	Texture *_optionTexture;
 	Font _fontRiddle;
+	int _droppingGateStartTicks;
+	int _thunderTicks;
+	int _thunderFrameDuration;
+	Math::Vector3d _thunderOffset;
+	Common::Array<Texture *>_thunderTextures;
 };
 
 }

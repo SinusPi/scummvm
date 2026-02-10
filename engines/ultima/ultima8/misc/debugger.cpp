@@ -19,12 +19,13 @@
  *
  */
 
+#include "ultima/ultima8/misc/debugger.h"
+
 #include "common/config-manager.h"
 #include "common/file.h"
-#include "common/tokenizer.h"
-#include "image/png.h"
+#include "common/system.h"
 #include "image/bmp.h"
-#include "ultima/ultima8/ultima8.h"
+#include "image/png.h"
 #include "ultima/ultima8/audio/audio_process.h"
 #include "ultima/ultima8/audio/music_process.h"
 #include "ultima/ultima8/games/game_data.h"
@@ -34,28 +35,28 @@
 #include "ultima/ultima8/gfx/texture.h"
 #include "ultima/ultima8/gumps/fast_area_vis_gump.h"
 #include "ultima/ultima8/gumps/game_map_gump.h"
+#include "ultima/ultima8/gumps/menu_gump.h"
 #include "ultima/ultima8/gumps/minimap_gump.h"
 #include "ultima/ultima8/gumps/movie_gump.h"
 #include "ultima/ultima8/gumps/quit_gump.h"
 #include "ultima/ultima8/gumps/shape_viewer_gump.h"
-#include "ultima/ultima8/gumps/menu_gump.h"
 #include "ultima/ultima8/kernel/kernel.h"
 #include "ultima/ultima8/kernel/object_manager.h"
 #include "ultima/ultima8/misc/id_man.h"
-#include "ultima/ultima8/misc/util.h"
-#include "ultima/ultima8/usecode/uc_machine.h"
+#include "ultima/ultima8/ultima8.h"
 #include "ultima/ultima8/usecode/bit_set.h"
-#include "ultima/ultima8/world/current_map.h"
-#include "ultima/ultima8/world/world.h"
+#include "ultima/ultima8/usecode/uc_machine.h"
+#include "ultima/ultima8/world/actors/avatar_mover_process.h"
+#include "ultima/ultima8/world/actors/main_actor.h"
+#include "ultima/ultima8/world/actors/pathfinder.h"
+#include "ultima/ultima8/world/actors/quick_avatar_mover_process.h"
 #include "ultima/ultima8/world/camera_process.h"
+#include "ultima/ultima8/world/current_map.h"
 #include "ultima/ultima8/world/get_object.h"
 #include "ultima/ultima8/world/item_factory.h"
-#include "ultima/ultima8/world/actors/quick_avatar_mover_process.h"
-#include "ultima/ultima8/world/actors/avatar_mover_process.h"
-#include "ultima/ultima8/world/actors/pathfinder.h"
-#include "ultima/ultima8/world/target_reticle_process.h"
 #include "ultima/ultima8/world/item_selection_process.h"
-#include "ultima/ultima8/world/actors/main_actor.h"
+#include "ultima/ultima8/world/target_reticle_process.h"
+#include "ultima/ultima8/world/world.h"
 
 namespace Ultima {
 namespace Ultima8 {
@@ -89,6 +90,7 @@ Debugger::Debugger() : GUI::Debugger() {
 	registerCmd("Cheat::toggleInvincibility", WRAP_METHOD(Debugger, cmdInvincibility));
 	registerCmd("Cheat::items", WRAP_METHOD(Debugger, cmdCheatItems));
 	registerCmd("Cheat::equip", WRAP_METHOD(Debugger, cmdCheatEquip));
+	registerCmd("Cheat::hackMover", WRAP_METHOD(Debugger, cmdHackMover));
 
 	registerCmd("GameMapGump::toggleHighlightItems", WRAP_METHOD(Debugger, cmdHighlightItems));
 	registerCmd("GameMapGump::toggleFootpads", WRAP_METHOD(Debugger, cmdFootpads));
@@ -129,7 +131,7 @@ Debugger::Debugger() : GUI::Debugger() {
 	registerCmd("ObjectManager::objectTypes", WRAP_METHOD(Debugger, cmdObjectTypes));
 	registerCmd("ObjectManager::objectInfo", WRAP_METHOD(Debugger, cmdObjectInfo));
 
-	registerCmd("QuickAvatarMoverProcess::toggleQuarterSpeed", WRAP_METHOD(Debugger, cmdQuarterSpeed));
+	registerCmd("QuickAvatarMoverProcess::toggle", WRAP_METHOD(Debugger, cmdQuickMover));
 	registerCmd("QuickAvatarMoverProcess::toggleClipping", WRAP_METHOD(Debugger, cmdClipping));
 
 	registerCmd("UCMachine::getGlobal", WRAP_METHOD(Debugger, cmdGetGlobal));
@@ -215,7 +217,7 @@ bool Debugger::cmdEngineStats(int argc, const char **argv) {
 
 bool Debugger::cmdSetVideoMode(int argc, const char **argv) {
 	if (argc != 3) {
-		debugPrintf("Usage: Ultima8Engine::setVidMode width height\n");
+		debugPrintf("Usage: %s <width> <height>\n", argv[0]);
 		return true;
 	} else {
 		Ultima8Engine::get_instance()->changeVideoMode(strtol(argv[1], 0, 0), strtol(argv[2], 0, 0));
@@ -315,7 +317,7 @@ bool Debugger::cmdStopSFX(int argc, const char **argv) {
 		debugPrintf("Error: No AudioProcess\n");
 		return true;
 	} else if (argc < 2) {
-		debugPrintf("usage: stopSFX <_sfxNum> [<_objId>]\n");
+		debugPrintf("Usage: %s <sfxNum> [objId]\n", argv[0]);
 		return true;
 	} else {
 		int sfxNum = static_cast<int>(strtol(argv[1], 0, 0));
@@ -332,7 +334,7 @@ bool Debugger::cmdPlaySFX(int argc, const char **argv) {
 		debugPrintf("Error: No AudioProcess\n");
 		return true;
 	} else if (argc < 2) {
-		debugPrintf("usage: playSFX <_sfxNum>\n");
+		debugPrintf("Usage: %s <sfxNum>\n", argv[0]);
 		return true;
 	} else {
 		int sfxNum = static_cast<int>(strtol(argv[1], 0, 0));
@@ -630,6 +632,26 @@ bool Debugger::cmdInvincibility(int argc, const char **argv) {
 	return true;
 }
 
+bool Debugger::cmdHackMover(int argc, const char **argv) {
+	if (argc > 2) {
+		debugPrintf("Usage: %s [on|off]\n", argv[0]);
+		return true;
+	}
+
+	Ultima8Engine *g = Ultima8Engine::get_instance();
+	bool flag = !g->isHackMoverEnabled();
+	if (argc > 1) {
+		if (scumm_stricmp(argv[1], "on") == 0 || scumm_stricmp(argv[1], "true") == 0)
+			flag = true;
+		else if (scumm_stricmp(argv[1], "off") == 0 || scumm_stricmp(argv[1], "false") == 0)
+			flag = false;
+	}
+
+	g->setHackMoverEnabled(flag);
+	debugPrintf("Hack mover = %s\n", strBool(flag));
+	return false;
+}
+
 bool Debugger::cmdHighlightItems(int argc, const char **argv) {
 	if (argc > 2) {
 		debugPrintf("Usage: %s [on|off]\n", argv[0]);
@@ -668,7 +690,7 @@ bool Debugger::cmdFootpads(int argc, const char **argv) {
 
 bool Debugger::cmdGridlines(int argc, const char **argv) {
 	if (argc > 2) {
-		debugPrintf("usage: %s [on|off|<number>]\n", argv[0]);
+		debugPrintf("Usage: %s [on|off|<number>]\n", argv[0]);
 		return true;
 	}
 	
@@ -708,7 +730,7 @@ void Debugger::dumpCurrentMap() {
 	// Work out the map limits in chunks
 	for (int32 y = 0; y < MAP_NUM_CHUNKS; y++) {
 		for (int32 x = 0; x < MAP_NUM_CHUNKS; x++) {
-			const Std::list<Item *> *list = curmap->getItemList(x, y);
+			const Common::List<Item *> *list = curmap->getItemList(x, y);
 
 			// Should iterate the items!
 			// (items could extend outside of this chunk and they have height)
@@ -887,7 +909,7 @@ bool Debugger::cmdProcessTypes(int argc, const char **argv) {
 
 bool Debugger::cmdListProcesses(int argc, const char **argv) {
 	if (argc > 2) {
-		debugPrintf("usage: listProcesses [<itemnum>]\n");
+		debugPrintf("Usage: %s [itemnum]\n", argv[0]);
 	} else {
 		Kernel *kern = Kernel::get_instance();
 		ObjId item = 0;
@@ -909,7 +931,7 @@ bool Debugger::cmdListProcesses(int argc, const char **argv) {
 
 bool Debugger::cmdProcessInfo(int argc, const char **argv) {
 	if (argc != 2) {
-		debugPrintf("usage: processInfo <objectnum>\n");
+		debugPrintf("Usage: %s <objectnum>\n", argv[0]);
 	} else {
 		Kernel *kern = Kernel::get_instance();
 
@@ -993,11 +1015,11 @@ bool Debugger::cmdTeleport(int argc, const char **argv) {
 			strtol(argv[4], 0, 0));
 		break;
 	default:
-		debugPrintf("teleport usage:\n");
-		debugPrintf("teleport <mapnum> <x> <y> <z>: teleport to (x,y,z) on map mapnum\n");
-		debugPrintf("teleport <x> <y> <z>: teleport to (x,y,z) on current map\n");
-		debugPrintf("teleport <mapnum> <eggnum>: teleport to target egg eggnum on map mapnum\n");
-		debugPrintf("teleport <eggnum>: teleport to target egg eggnum on current map\n");
+		debugPrintf("Usage:\n");
+		debugPrintf("%s <mapnum> <x> <y> <z>: teleport to (x,y,z) on map mapnum\n", argv[0]);
+		debugPrintf("%s <x> <y> <z>: teleport to (x,y,z) on current map\n", argv[0]);
+		debugPrintf("%s <mapnum> <eggnum>: teleport to target egg eggnum on map mapnum\n", argv[0]);
+		debugPrintf("%s <eggnum>: teleport to target egg eggnum on current map\n", argv[0]);
 		return true;
 	}
 
@@ -1006,7 +1028,7 @@ bool Debugger::cmdTeleport(int argc, const char **argv) {
 
 bool Debugger::cmdMark(int argc, const char **argv) {
 	if (argc == 1) {
-		debugPrintf("Usage: mark <mark>: set named mark to this location\n");
+		debugPrintf("Usage: %s <mark>: set named mark to this location\n", argv[0]);
 		return true;
 	}
 
@@ -1028,7 +1050,7 @@ bool Debugger::cmdRecall(int argc, const char **argv) {
 		return true;
 	}
 	if (argc == 1) {
-		debugPrintf("Usage: recall <mark>: recall to named mark\n");
+		debugPrintf("Usage: %s <mark>: recall to named mark\n", argv[0]);
 		return true;
 	}
 
@@ -1053,11 +1075,10 @@ bool Debugger::cmdRecall(int argc, const char **argv) {
 
 bool Debugger::cmdListMarks(int argc, const char **argv) {
 	const Common::ConfigManager::Domain *domain = ConfMan.getActiveDomain();
-	Common::ConfigManager::Domain::const_iterator dit;
 	Common::StringArray marks;
-	for (dit = domain->begin(); dit != domain->end(); ++dit) {
-		if (dit->_key.hasPrefix("mark_")) {
-			marks.push_back(dit->_key.substr(5));
+	for (const auto & dit : *domain) {
+		if (dit._key.hasPrefix("mark_")) {
+			marks.push_back(dit._key.substr(5));
 		}
 	}
 
@@ -1338,7 +1359,7 @@ bool Debugger::cmdObjectTypes(int argc, const char **argv) {
 
 bool Debugger::cmdObjectInfo(int argc, const char **argv) {
 	if (argc != 2) {
-		debugPrintf("usage: objectInfo <objectnum>\n");
+		debugPrintf("Usage: %s <objectnum>\n", argv[0]);
 	} else {
 		ObjectManager *objMan = ObjectManager::get_instance();
 
@@ -1363,13 +1384,13 @@ bool Debugger::cmdObjectInfo(int argc, const char **argv) {
 	return true;
 }
 
-bool Debugger::cmdQuarterSpeed(int argc, const char **argv) {
+bool Debugger::cmdQuickMover(int argc, const char **argv) {
 	if (argc > 2) {
 		debugPrintf("Usage: %s [on|off]\n", argv[0]);
 		return true;
 	}
 
-	bool flag = !QuickAvatarMoverProcess::isQuarterSpeed();
+	bool flag = !QuickAvatarMoverProcess::isEnabled();
 	if (argc > 1) {
 		if (scumm_stricmp(argv[1], "on") == 0 || scumm_stricmp(argv[1], "true") == 0)
 			flag = true;
@@ -1377,7 +1398,8 @@ bool Debugger::cmdQuarterSpeed(int argc, const char **argv) {
 			flag = false;
 	}
 
-	QuickAvatarMoverProcess::setQuarterSpeed(flag);
+	QuickAvatarMoverProcess::setEnabled(flag);
+	debugPrintf("QuickAvatarMoverProcess::_enabled = %s\n", strBool(flag));
 	return false;
 }
 
@@ -1409,7 +1431,7 @@ bool Debugger::cmdClipping(int argc, const char **argv) {
 bool Debugger::cmdGetGlobal(int argc, const char **argv) {
 	UCMachine *uc = UCMachine::get_instance();
 	if (argc != 3) {
-		debugPrintf("usage: UCMachine::getGlobal offset size\n");
+		debugPrintf("Usage: %s <offset> <size>\n", argv[0]);
 		return true;
 	}
 
@@ -1423,7 +1445,7 @@ bool Debugger::cmdGetGlobal(int argc, const char **argv) {
 bool Debugger::cmdSetGlobal(int argc, const char **argv) {
 	UCMachine *uc = UCMachine::get_instance();
 	if (argc != 4) {
-		debugPrintf("usage: UCMachine::setGlobal offset size value\n");
+		debugPrintf("Usage: %s <offset> <size> <value>\n", argv[0]);
 		return true;
 	}
 
@@ -1439,7 +1461,7 @@ bool Debugger::cmdSetGlobal(int argc, const char **argv) {
 
 bool Debugger::cmdTracePID(int argc, const char **argv) {
 	if (argc != 2) {
-		debugPrintf("Usage: UCMachine::tracePID _pid\n");
+		debugPrintf("Usage: %s <pid>\n", argv[0]);
 		return true;
 	}
 
@@ -1455,7 +1477,7 @@ bool Debugger::cmdTracePID(int argc, const char **argv) {
 
 bool Debugger::cmdTraceObjID(int argc, const char **argv) {
 	if (argc != 2) {
-		debugPrintf("Usage: UCMachine::traceObjID objid\n");
+		debugPrintf("Usage: %s <objid>\n", argv[0]);
 		return true;
 	}
 
@@ -1471,7 +1493,7 @@ bool Debugger::cmdTraceObjID(int argc, const char **argv) {
 
 bool Debugger::cmdTraceClass(int argc, const char **argv) {
 	if (argc != 2) {
-		debugPrintf("Usage: UCMachine::traceClass class\n");
+		debugPrintf("Usage: %s <class>\n", argv[0]);
 		return true;
 	}
 
@@ -1561,7 +1583,7 @@ bool Debugger::cmdInvertScreen(int argc, const char **argv) {
 
 bool Debugger::cmdPlayMovie(int argc, const char **argv) {
 	if (argc != 2) {
-		debugPrintf("play usage: play <moviename>\n");
+		debugPrintf("Usage: %s <moviename>\n", argv[0]);
 		return true;
 	}
 
@@ -1580,7 +1602,7 @@ bool Debugger::cmdPlayMovie(int argc, const char **argv) {
 bool Debugger::cmdPlayMusic(int argc, const char **argv) {
 	if (MusicProcess::_theMusicProcess) {
 		if (argc != 2) {
-			debugPrintf("MusicProcess::playMusic (tracknum)\n");
+			debugPrintf("Usage: %s <tracknum>\n", argv[0]);
 		} else {
 			debugPrintf("Playing track %s\n", argv[1]);
 			MusicProcess::_theMusicProcess->playMusic_internal(atoi(argv[1]));
@@ -1646,7 +1668,7 @@ bool Debugger::cmdClearMinimap(int argc, const char **argv) {
 
 bool Debugger::cmdBenchmarkRenderSurface(int argc, const char **argv) {
 	if (argc != 4) {
-		debugPrintf("usage: RenderSurface::benchmark shapenum framenum iterations\n");
+		debugPrintf("Usage: %s <shapenum> <framenum> <iterations>\n", argv[0]);
 		return true;
 	}
 
@@ -1715,7 +1737,7 @@ bool Debugger::cmdBenchmarkRenderSurface(int argc, const char **argv) {
 bool Debugger::cmdVisualDebugPathfinder(int argc, const char **argv) {
 #ifdef DEBUG_PATHFINDER
 	if (argc != 2) {
-		debugPrintf("Usage: Pathfinder::visualDebug objid\n");
+		debugPrintf("Usage: %s <objid>\n", argv[0]);
 		debugPrintf("Specify objid -1 to stop tracing.\n");
 		return true;
 	}

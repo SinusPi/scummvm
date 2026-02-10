@@ -62,6 +62,8 @@ Access
      -
    * - Paul Gilbert
      -
+   * - Matthew Duggan
+     -
 
 ADL
 ^^^
@@ -70,6 +72,15 @@ ADL
    :widths: 35 65
 
    * - Walter van Niftrik
+     -
+
+AGDS
+^^^^
+
+.. list-table::
+   :widths: 35 65
+
+   * - Vladimir Menshakov
      -
 
 AGI
@@ -202,6 +213,15 @@ AGS
      - AGS
    * - Berian Williams
      - AgsCreditz
+
+Alcachofa
+^^^^^^^^^
+
+.. list-table::
+   :widths: 35 65
+
+   * - Hermann Noll
+     -
 
 Asylum
 ^^^^^^
@@ -1398,6 +1418,15 @@ Toon
    * - Sylvain Dupont
      -
 
+Tot
+^^^
+
+.. list-table::
+   :widths: 35 65
+
+   * - Gabriel Sanmartín
+     -
+
 Touché
 ^^^^^^^
 
@@ -1490,6 +1519,8 @@ Ultima
      -
    * - Matthew Jimenez
      -
+   * - Paul Robson
+     - (Akalabeth)
    * - Daniel c. Würl
      - (Nuvie)
    * - Eric Fry
@@ -1553,8 +1584,12 @@ WAGE
 .. list-table::
    :widths: 35 65
 
+   * - Alikhan Balpykov
+     -
    * - Eugene Sandulenko
      -
+   * - Alexei Svitkine
+     - (Java implementation author)
 
 Watchmaker
 ^^^^^^^^^^
@@ -1594,6 +1629,8 @@ Z-Vision
      -
    * - Anton Yarcev
      -
+   * - Thomas N McEwan
+     - Widescreen mod, HQ panoramas, 3D audio enhancement
 
 Backend Teams
 *************

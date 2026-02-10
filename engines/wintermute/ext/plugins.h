@@ -43,6 +43,8 @@ BaseScriptable *makeSXSample(BaseGame *inGame, ScStack *stack);
 BaseScriptable *makeSXVlink(BaseGame *inGame, ScStack *stack);
 BaseScriptable *makeSXBlackAndWhite(BaseGame *inGame, ScStack *stack);
 BaseScriptable *makeSXShadowManager(BaseGame *inGame, ScStack *stack);
+BaseScriptable *makeSXDisplacement(BaseGame *inGame, ScStack *stack);
+BaseScriptable *makeSXProtection(BaseGame *inGame, ScStack *stack);
 
 bool EmulatePluginCall(BaseGame *inGame, ScStack *stack, ScStack *thisStack, char *name) {
 	ScValue *thisObj;
@@ -108,6 +110,31 @@ bool EmulatePluginCall(BaseGame *inGame, ScStack *stack, ScStack *thisStack, cha
 	}
 
 	//////////////////////////////////////////////////////////////////////////
+	// Displacement plugin (from wme_displacement.dll for "Beyond the Threshold" game)
+	//////////////////////////////////////////////////////////////////////////
+	else if (strcmp(name, "Displacement") == 0) {
+		thisObj = thisStack->getTop();
+
+		thisObj->setNative(makeSXDisplacement(inGame, stack));
+
+		stack->pushNULL();
+		return STATUS_OK;
+	}
+
+	//////////////////////////////////////////////////////////////////////////
+	// Protection class for "Susan Rose: Mysterious Child" game)
+	//////////////////////////////////////////////////////////////////////////
+	else if (strcmp(name, "Protection") == 0) {
+		thisObj = thisStack->getTop();
+
+		thisObj->setNative(makeSXProtection(inGame, stack));
+
+		stack->pushNULL();
+		return STATUS_OK;
+	}
+
+#ifdef ENABLE_WME3D
+	//////////////////////////////////////////////////////////////////////////
 	// BinkVideo player (from wme_vlink.dll of "Sunrise" game)
 	//////////////////////////////////////////////////////////////////////////
 	else if (strcmp(name, "BinkVideo") == 0) {
@@ -119,7 +146,6 @@ bool EmulatePluginCall(BaseGame *inGame, ScStack *stack, ScStack *thisStack, cha
 		return STATUS_OK;
 	}
 
-#ifdef ENABLE_WME3D
 	//////////////////////////////////////////////////////////////////////////
 	// BlackAndWhite (from wme_blackandwhite.dll of "Stroke of Fate" duology games)
 	//////////////////////////////////////////////////////////////////////////

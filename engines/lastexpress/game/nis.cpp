@@ -39,6 +39,7 @@ NISManager::~NISManager() {
 	SAFE_DELETE(_background2);
 	SAFE_DELETE(_waneSprite);
 	SAFE_DELETE(_waxSprite);
+	SAFE_DELETE_ARR(_events);
 }
 
 void NISManager::clearBounds() {
@@ -79,10 +80,13 @@ void NISManager::convertNSPR16(byte *spriteData, NisSprite *outSprite) {
 	WRITE_LE_UINT16(&outSprite->colorPalette[0], 0);
 	WRITE_LE_UINT16(&outSprite->colorPalette[1], 0);
 
+	for (int i = 0; i < 128; ++i)
+		outSprite->colorPalette[i] = READ_LE_UINT16(&outSprite->colorPalette[i]);
+
 	_engine->getGraphicsManager()->modifyPalette((uint16 *)outSprite->colorPalette, 128);
 
 	for (int i = 0; i < 128; i++)
-		outSprite->gammaPalette[i] = READ_LE_UINT16(spriteData + 2 * i + 36);
+		outSprite->gammaPalette[i] = READ_UINT16(spriteData + 2 * i + 36);
 
 	outSprite->compBits = spriteData[2 * 128 + 36];
 
@@ -149,7 +153,7 @@ void NISManager::loadSnd(int32 size) {
 }
 
 int NISManager::loadChunk(int32 size) {
-	int32 sizeToLoad = _totalStreamPages - ((_remainingStreamBytes + 2047) / PAGE_SIZE);
+	int32 sizeToLoad = _totalStreamPages - ((_remainingStreamBytes + 2047) / MEM_PAGE_SIZE);
 
 	if (!_archive || (_archive->status & 2) == 0)
 		return 0;
@@ -180,10 +184,10 @@ int NISManager::loadChunk(int32 size) {
 	if (sizeToLoad + _currentStreamPage >= _totalStreamPages)
 		sizeToLoad = _totalStreamPages - _currentStreamPage;
 
-	_engine->getArchiveManager()->readHPF(_archive, ((byte *)_backgroundSurface + (_currentStreamPage * PAGE_SIZE)), sizeToLoad);
+	_engine->getArchiveManager()->readHPF(_archive, ((byte *)_backgroundSurface + (_currentStreamPage * MEM_PAGE_SIZE)), sizeToLoad);
 
 	_currentStreamPage += sizeToLoad;
-	_remainingStreamBytes += sizeToLoad * PAGE_SIZE;
+	_remainingStreamBytes += sizeToLoad * MEM_PAGE_SIZE;
 
 	if (_currentStreamPage >= _totalStreamPages)
 		_currentStreamPage -= _totalStreamPages;
@@ -210,11 +214,11 @@ bool NISManager::initNIS(const char *filename, int32 flags) {
 	_currentStreamPage = 0;
 	_streamCurrentPosition = 0;
 	_remainingStreamBytes = 0;
-	_streamBufferSize = 1530 * PAGE_SIZE;
-	_originalBackgroundSurface = _engine->getGraphicsManager()->_backgroundBuffer;
+	_streamBufferSize = 1530 * MEM_PAGE_SIZE;
+	_originalBackgroundSurface = _engine->getGraphicsManager()->_frontBuffer;
 	_totalBackgroundPages = 1530;
 	_totalStreamPages = 1530;
-	_backgroundSurface = _engine->getGraphicsManager()->_backgroundBuffer;
+	_backgroundSurface = _engine->getGraphicsManager()->_frontBuffer;
 
 	_archive = _engine->getArchiveManager()->openHPF(filename);
 	if (!_archive) {
@@ -222,17 +226,20 @@ bool NISManager::initNIS(const char *filename, int32 flags) {
 		return false;
 	}
 
-	_engine->getMemoryManager()->lockSeqMem((_totalBackgroundPages - 300) * PAGE_SIZE);
+	_engine->getMemoryManager()->lockSeqMem((_totalBackgroundPages - 300) * MEM_PAGE_SIZE);
 	getStream((byte *)&_eventsCount, 4);
+
+	_eventsCount = READ_LE_INT32(&_eventsCount);
+
 	_eventsByteStream = (byte *)(_backgroundSurface + 2);
 
-	_background1Offset = *((int32 *)_backgroundSurface + 2);
+	_background1Offset = READ_LE_INT32((int32 *)_backgroundSurface + 2);
 	_background1Offset += 16;
 	_background1Offset &= 0xFFFFFFF0;
 	_streamBufferSize -= _background1Offset;
 	_background1ByteStream = (byte *)((byte *)_backgroundSurface + _streamBufferSize);
 
-	_waneSpriteOffset = *((int32 *)_backgroundSurface + 4);
+	_waneSpriteOffset = READ_LE_INT32((int32 *)_backgroundSurface + 4);
 	_waneSpriteOffset += 16;
 	_waneSpriteOffset &= 0xFFFFFFF0;
 	_streamBufferSize -= _waneSpriteOffset;
@@ -240,13 +247,14 @@ bool NISManager::initNIS(const char *filename, int32 flags) {
 	_waneSpriteByteStream = (byte *)((byte *)_backgroundSurface + _streamBufferSize);
 	_streamBufferSize -= 8 * _eventsCount;
 	_eventsByteStream = (byte *)((byte *)_backgroundSurface + _streamBufferSize);
-	_totalStreamPages = (_streamBufferSize / PAGE_SIZE);
-	_streamBufferSize = (_streamBufferSize / PAGE_SIZE) * PAGE_SIZE;
+	_totalStreamPages = (_streamBufferSize / MEM_PAGE_SIZE);
+	_streamBufferSize = (_streamBufferSize / MEM_PAGE_SIZE) * MEM_PAGE_SIZE;
 
 	chunkSizeRead = loadChunk(32);
 
 	getStream(_eventsByteStream, 8 * _eventsCount);
 
+	SAFE_DELETE_ARR(_events);
 	_events = new NisEvents[_eventsCount];
 
 	for (int i = 0; i < _eventsCount; i++) {
@@ -259,7 +267,7 @@ bool NISManager::initNIS(const char *filename, int32 flags) {
 		if (!_events[4].eventSize)
 			break;
 
-		chunkSizeRead = loadChunk(32) * PAGE_SIZE;
+		chunkSizeRead = loadChunk(32) * MEM_PAGE_SIZE;
 
 		if (!chunkSizeRead)
 			break;
@@ -331,7 +339,7 @@ void NISManager::abortNIS() {
 }
 
 void NISManager::nisMouse(Event *event) {
-	if ((event->flags & 0x10) != 0)
+	if ((event->flags & kMouseFlagRightDown) != 0)
 		abortNIS();
 }
 
@@ -360,7 +368,7 @@ void NISManager::drawSprite(NisSprite *sprite) {
 	switch (sprite->compBits) {
 	case 3:
 		if (_decompressToBackBuffer) {
-			_engine->getGraphicsManager()->bitBltSprite8(&tempSprite, _engine->getGraphicsManager()->_screenBuffer);
+			_engine->getGraphicsManager()->bitBltSprite8(&tempSprite, _engine->getGraphicsManager()->_backBuffer);
 		} else if (_engine->getGraphicsManager()->acquireSurface()) {
 			_engine->getGraphicsManager()->bitBltSprite8(&tempSprite, (PixMap *)_engine->getGraphicsManager()->_screenSurface.getPixels());
 			_engine->getGraphicsManager()->unlockSurface();
@@ -369,7 +377,7 @@ void NISManager::drawSprite(NisSprite *sprite) {
 		break;
 	case 4:
 		if (_decompressToBackBuffer) {
-			_engine->getGraphicsManager()->bitBltSprite16(&tempSprite, _engine->getGraphicsManager()->_screenBuffer);
+			_engine->getGraphicsManager()->bitBltSprite16(&tempSprite, _engine->getGraphicsManager()->_backBuffer);
 		} else if (_engine->getGraphicsManager()->acquireSurface()) {
 			_engine->getGraphicsManager()->bitBltSprite16(&tempSprite, (PixMap *)_engine->getGraphicsManager()->_screenSurface.getPixels());
 			_engine->getGraphicsManager()->unlockSurface();
@@ -378,7 +386,7 @@ void NISManager::drawSprite(NisSprite *sprite) {
 		break;
 	case 5:
 		if (_decompressToBackBuffer) {
-			_engine->getGraphicsManager()->bitBltSprite32(&tempSprite, _engine->getGraphicsManager()->_screenBuffer);
+			_engine->getGraphicsManager()->bitBltSprite32(&tempSprite, _engine->getGraphicsManager()->_backBuffer);
 		} else if (_engine->getGraphicsManager()->acquireSurface()) {
 			_engine->getGraphicsManager()->bitBltSprite32(&tempSprite, (PixMap *)_engine->getGraphicsManager()->_screenSurface.getPixels());
 			_engine->getGraphicsManager()->unlockSurface();
@@ -387,7 +395,7 @@ void NISManager::drawSprite(NisSprite *sprite) {
 		break;
 	case 7:
 		if (_decompressToBackBuffer) {
-			_engine->getGraphicsManager()->bitBltSprite128(&tempSprite, _engine->getGraphicsManager()->_screenBuffer);
+			_engine->getGraphicsManager()->bitBltSprite128(&tempSprite, _engine->getGraphicsManager()->_backBuffer);
 		} else if (_engine->getGraphicsManager()->acquireSurface()) {
 			_engine->getGraphicsManager()->bitBltSprite128(&tempSprite, (PixMap *)_engine->getGraphicsManager()->_screenSurface.getPixels());
 			_engine->getGraphicsManager()->unlockSurface();
@@ -396,7 +404,7 @@ void NISManager::drawSprite(NisSprite *sprite) {
 		break;
 	case 255:
 		if (_decompressToBackBuffer) {
-			_engine->getGraphicsManager()->bitBltSprite255(&tempSprite, _engine->getGraphicsManager()->_screenBuffer);
+			_engine->getGraphicsManager()->bitBltSprite255(&tempSprite, _engine->getGraphicsManager()->_backBuffer);
 		} else if (_engine->getGraphicsManager()->acquireSurface()) {
 			_engine->getGraphicsManager()->bitBltSprite255(&tempSprite, (PixMap *)_engine->getGraphicsManager()->_screenSurface.getPixels());
 			_engine->getGraphicsManager()->unlockSurface();
@@ -546,8 +554,8 @@ bool NISManager::doNIS(const char *name, int32 flags) {
 	_savedMouseEventHandle = _engine->getMessageManager()->getEventHandle(1);
 	_savedTimerEventHandle = _engine->getMessageManager()->getEventHandle(3);
 
-	_engine->getMessageManager()->setEventHandle(1, &LastExpressEngine::nisMouseWrapper);
-	_engine->getMessageManager()->setEventHandle(3, &LastExpressEngine::nisTimerWrapper);
+	_engine->getMessageManager()->setEventHandle(kEventChannelMouse, &LastExpressEngine::nisMouseWrapper);
+	_engine->getMessageManager()->setEventHandle(kEventChannelTimer, &LastExpressEngine::nisTimerWrapper);
 
 	_engine->getSoundManager()->setSoundDriverTicks(0);
 
@@ -614,8 +622,10 @@ bool NISManager::doNIS(const char *name, int32 flags) {
 
 				_engine->getSoundManager()->soundThread();
 				_engine->getSubtitleManager()->subThread();
-				_engine->getMessageManager()->process();
-				_engine->handleEvents();
+				if (!_engine->getMessageManager()->process()) {
+					// Only wait and handle events if we've processed all messages, unlike the original which had a separate thread for input...
+					_engine->waitForTimer(5);
+				}
 
 				for (slot = _engine->getSoundManager()->_soundCache; slot; slot = slot->getNext()) {
 					if (slot->hasTag(kSoundTagNIS))
@@ -656,8 +666,8 @@ bool NISManager::doNIS(const char *name, int32 flags) {
 	if (_currentNISSound && !_currentNISSound->getTime())
 		_currentNISSound->addStatusFlag(kSoundFlagCloseRequested);
 
-	_engine->getMessageManager()->setEventHandle(1, _savedMouseEventHandle);
-	_engine->getMessageManager()->setEventHandle(3, _savedTimerEventHandle);
+	_engine->getMessageManager()->setEventHandle(kEventChannelMouse, _savedMouseEventHandle);
+	_engine->getMessageManager()->setEventHandle(kEventChannelTimer, _savedTimerEventHandle);
 
 	if (_currentNISSound && (_flags & kNisFlagAbortRequested) != 0)
 		_currentNISSound->addStatusFlag(kSoundFlagCloseRequested);
@@ -742,14 +752,14 @@ void NISManager::processNIS(NisEvents *event) {
 		_backgroundFlag = 0;
 
 		if (_decompressToBackBuffer)
-			_engine->getGraphicsManager()->clear(_engine->getGraphicsManager()->_screenBuffer, 0, 0, 640, 480);
+			_engine->getGraphicsManager()->clear(_engine->getGraphicsManager()->_backBuffer, 0, 0, 640, 480);
 
 		if (_selectBackgroundType != _backgroundType) {
 			drawBK(_selectBackgroundType);
 		} else if (_engine->getGraphicsManager()->acquireSurface()) {
 			if (_backgroundType == 1) {
 				_engine->getGraphicsManager()->copy(
-					_engine->getGraphicsManager()->_screenBuffer,
+					_engine->getGraphicsManager()->_backBuffer,
 					(PixMap *)_engine->getGraphicsManager()->_screenSurface.getPixels(),
 					_background1->rect.left,
 					_background1->rect.top,
@@ -758,7 +768,7 @@ void NISManager::processNIS(NisEvents *event) {
 				);
 			} else if (_backgroundType == 2) {
 				_engine->getGraphicsManager()->copy(
-					_engine->getGraphicsManager()->_screenBuffer,
+					_engine->getGraphicsManager()->_backBuffer,
 					(PixMap *)_engine->getGraphicsManager()->_screenSurface.getPixels(),
 					_background2->rect.left,
 					_background2->rect.top,
@@ -813,14 +823,14 @@ void NISManager::processNIS(NisEvents *event) {
 		if (_decompressToBackBuffer) {
 			for (int i = 0; i < 3; i++) {
 				_engine->getSoundManager()->soundThread();
-				_engine->getGraphicsManager()->dissolve((2 * x) + (2 * (i & 1)), width, 480, _engine->getGraphicsManager()->_screenBuffer);
+				_engine->getGraphicsManager()->dissolve((2 * x) + (2 * (i & 1)), width, 480, _engine->getGraphicsManager()->_backBuffer);
 				_engine->getGraphicsManager()->burstBox(x, 0, width, 480);
 				_engine->getSoundManager()->soundThread();
 				_engine->handleEvents();
 			}
 
 			if (_engine->getGraphicsManager()->acquireSurface()) {
-				_engine->getGraphicsManager()->copy(_engine->getGraphicsManager()->_screenBuffer, (PixMap *)_engine->getGraphicsManager()->_screenSurface.getPixels(), x, 0, width, 480);
+				_engine->getGraphicsManager()->copy(_engine->getGraphicsManager()->_backBuffer, (PixMap *)_engine->getGraphicsManager()->_screenSurface.getPixels(), x, 0, width, 480);
 				_engine->getGraphicsManager()->unlockSurface();
 			}
 
@@ -850,7 +860,7 @@ void NISManager::processNIS(NisEvents *event) {
 			if (_engine->getGraphicsManager()->acquireSurface()) {
 				if (_backgroundType == 1) {
 					_engine->getGraphicsManager()->copy(
-						_engine->getGraphicsManager()->_screenBuffer,
+						_engine->getGraphicsManager()->_backBuffer,
 						(PixMap *)_engine->getGraphicsManager()->_screenSurface.getPixels(),
 						_background1->rect.left,
 						_background1->rect.top,
@@ -859,7 +869,7 @@ void NISManager::processNIS(NisEvents *event) {
 					);
 				} else if (_backgroundType == 2) {
 					_engine->getGraphicsManager()->copy(
-						_engine->getGraphicsManager()->_screenBuffer,
+						_engine->getGraphicsManager()->_backBuffer,
 						(PixMap *)_engine->getGraphicsManager()->_screenSurface.getPixels(),
 						_background2->rect.left,
 						_background2->rect.top,
@@ -900,7 +910,7 @@ void NISManager::processNIS(NisEvents *event) {
 
 		if ((_flags & kNisFlagSoundInitialized) == 0) {
 			_flags |= kNisFlagSoundInitialized;
-			_currentNISSound->setBlockCount(*((uint16 *)_currentNISSound->getDataStart() + 2) - 1);
+			_currentNISSound->setBlockCount(READ_LE_UINT16((uint16 *)_currentNISSound->getDataStart() + 2) - 1);
 			_currentNISSound->setSize(0x16000);
 		}
 
@@ -934,7 +944,7 @@ void NISManager::drawBK(int type) {
 	_firstNISBackgroundDraw = true;
 
 	if (!_decompressToBackBuffer && _engine->getGraphicsManager()->acquireSurface()) {
-		_engine->getGraphicsManager()->copy((PixMap *)_engine->getGraphicsManager()->_screenSurface.getPixels(), _engine->getGraphicsManager()->_screenBuffer, 0, 0, 640, 480);
+		_engine->getGraphicsManager()->copy((PixMap *)_engine->getGraphicsManager()->_screenSurface.getPixels(), _engine->getGraphicsManager()->_backBuffer, 0, 0, 640, 480);
 		_engine->getGraphicsManager()->unlockSurface();
 	}
 
@@ -948,9 +958,9 @@ void NISManager::getNISSlot() {
 
 	slot->setCurrentBufferPtr(slot->getSoundBuffer());
 	slot->setDataStart(slot->getSoundBuffer());
-	slot->setDataEnd(slot->getSoundBuffer() + (44 * PAGE_SIZE));
+	slot->setDataEnd(slot->getSoundBuffer() + (44 * MEM_PAGE_SIZE));
 	slot->setCurrentDataPtr(slot->getDataStart() + 6);
-	slot->setSize(44 * PAGE_SIZE);
+	slot->setSize(44 * MEM_PAGE_SIZE);
 }
 
 Slot *NISManager::getChainedSound() {

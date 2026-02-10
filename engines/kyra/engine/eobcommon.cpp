@@ -138,6 +138,8 @@ EoBCoreEngine::EoBCoreEngine(OSystem *system, const GameFlags &flags) : KyraRpgE
 	_configHpBarGraphs = true;
 	_configMouseBtSwap = false;
 	_configADDRuleEnhancements = false;
+	_configEnhancedReload = false;
+	_configNPCPatch = false;
 
 	_npcSequenceSub = 0;
 	_moveCounter = 0;
@@ -364,27 +366,27 @@ EoBCoreEngine::~EoBCoreEngine() {
 Common::KeymapArray EoBCoreEngine::initKeymaps(const Common::String &gameId) {
 	Common::Keymap *const keyMap = new Common::Keymap(Common::Keymap::kKeymapTypeGame, kKeymapName, "Eye of the Beholder");
 
-	addKeymapAction(keyMap, Common::kStandardActionLeftClick, _("Interact via Left Click"), &Common::Action::setLeftClickEvent, "MOUSE_LEFT", "JOY_A");
-	addKeymapAction(keyMap, Common::kStandardActionRightClick, _("Interact via Right Click"), &Common::Action::setRightClickEvent, "MOUSE_RIGHT", "JOY_B");
-	addKeymapAction(keyMap, "MVF", _("Move Forward"), Common::KeyState(Common::KEYCODE_UP), "UP", "JOY_UP");
-	addKeymapAction(keyMap, "MVB", _("Move Backwards"), Common::KeyState(Common::KEYCODE_DOWN), "DOWN", "JOY_DOWN");
-	addKeymapAction(keyMap, "MVL", _("Move Left"), Common::KeyState(Common::KEYCODE_LEFT), "LEFT", "JOY_LEFT_TRIGGER");
-	addKeymapAction(keyMap, "MVR", _("Move Right"), Common::KeyState(Common::KEYCODE_RIGHT), "RIGHT", "JOY_RIGHT_TRIGGER");
-	addKeymapAction(keyMap, "TL", _("Turn Left"), Common::KeyState(Common::KEYCODE_HOME), "HOME", "JOY_LEFT");
-	addKeymapAction(keyMap, "TR", _("Turn Right"), Common::KeyState(Common::KEYCODE_PAGEUP), "PAGEUP", "JOY_RIGHT");
-	addKeymapAction(keyMap, "INV", _("Open/Close Inventory"), Common::KeyState(Common::KEYCODE_i, 'i'), "i", "JOY_X");
-	addKeymapAction(keyMap, "SCE", _("Switch Inventory/Character screen"), Common::KeyState(Common::KEYCODE_p, 'p'), "p", "JOY_Y");
+	addKeymapAction(keyMap, Common::kStandardActionLeftClick, _("Left click"), &Common::Action::setLeftClickEvent, "MOUSE_LEFT", "JOY_A");
+	addKeymapAction(keyMap, Common::kStandardActionRightClick, _("Right click"), &Common::Action::setRightClickEvent, "MOUSE_RIGHT", "JOY_B");
+	addKeymapAction(keyMap, "MVF", _("Move forward"), Common::KeyState(Common::KEYCODE_UP), "UP", "JOY_UP");
+	addKeymapAction(keyMap, "MVB", _("Move backwards"), Common::KeyState(Common::KEYCODE_DOWN), "DOWN", "JOY_DOWN");
+	addKeymapAction(keyMap, "MVL", _("Move left"), Common::KeyState(Common::KEYCODE_LEFT), "LEFT", "JOY_LEFT_TRIGGER");
+	addKeymapAction(keyMap, "MVR", _("Move right"), Common::KeyState(Common::KEYCODE_RIGHT), "RIGHT", "JOY_RIGHT_TRIGGER");
+	addKeymapAction(keyMap, "TL", _("Turn left"), Common::KeyState(Common::KEYCODE_HOME), "HOME", "JOY_LEFT");
+	addKeymapAction(keyMap, "TR", _("Turn right"), Common::KeyState(Common::KEYCODE_PAGEUP), "PAGEUP", "JOY_RIGHT");
+	addKeymapAction(keyMap, "INV", _("Open / Close inventory"), Common::KeyState(Common::KEYCODE_i, 'i'), "i", "JOY_X");
+	addKeymapAction(keyMap, "SCE", _("Switch inventory / Character screen"), Common::KeyState(Common::KEYCODE_p, 'p'), "p", "JOY_Y");
 	addKeymapAction(keyMap, "CMP", _("Camp"), Common::KeyState(Common::KEYCODE_c, 'c'), "c", "");
-	addKeymapAction(keyMap, "CSP", _("Cast Spell"), Common::KeyState(Common::KEYCODE_SPACE, ' '), "SPACE", "JOY_LEFT_SHOULDER");
+	addKeymapAction(keyMap, "CSP", _("Cast spell"), Common::KeyState(Common::KEYCODE_SPACE, ' '), "SPACE", "JOY_LEFT_SHOULDER");
 	// TODO: Spell cursor, but this needs more thought, since different
 	// game versions use different keycodes.
-	addKeymapAction(keyMap, "SL1", _("Spell Level 1"), Common::KeyState(Common::KEYCODE_1, '1'), "1", "");
-	addKeymapAction(keyMap, "SL2", _("Spell Level 2"), Common::KeyState(Common::KEYCODE_2, '2'), "2", "");
-	addKeymapAction(keyMap, "SL3", _("Spell Level 3"), Common::KeyState(Common::KEYCODE_3, '3'), "3", "");
-	addKeymapAction(keyMap, "SL4", _("Spell Level 4"), Common::KeyState(Common::KEYCODE_4, '4'), "4", "");
-	addKeymapAction(keyMap, "SL5", _("Spell Level 5"), Common::KeyState(Common::KEYCODE_5, '5'), "5", "");
+	addKeymapAction(keyMap, "SL1", _("Spell level 1"), Common::KeyState(Common::KEYCODE_1, '1'), "1", "");
+	addKeymapAction(keyMap, "SL2", _("Spell level 2"), Common::KeyState(Common::KEYCODE_2, '2'), "2", "");
+	addKeymapAction(keyMap, "SL3", _("Spell level 3"), Common::KeyState(Common::KEYCODE_3, '3'), "3", "");
+	addKeymapAction(keyMap, "SL4", _("Spell level 4"), Common::KeyState(Common::KEYCODE_4, '4'), "4", "");
+	addKeymapAction(keyMap, "SL5", _("Spell level 5"), Common::KeyState(Common::KEYCODE_5, '5'), "5", "");
 	if (gameId == "eob2")
-		addKeymapAction(keyMap, "SL6", _("Spell Level 6"), Common::KeyState(Common::KEYCODE_6, '6'), "6", "");
+		addKeymapAction(keyMap, "SL6", _("Spell level 6"), Common::KeyState(Common::KEYCODE_6, '6'), "6", "");
 
 	return Common::Keymap::arrayOf(keyMap);
 }
@@ -686,13 +688,18 @@ void EoBCoreEngine::registerDefaultSettings() {
 	ConfMan.registerDefault("hpbargraphs", true);
 	ConfMan.registerDefault("mousebtswap", false);
 	ConfMan.registerDefault("addrules", false);
+	ConfMan.registerDefault("mreload", false);
 	ConfMan.registerDefault("importOrigSaves", true);
+	if (_flags.gameID == GI_EOB1)
+		ConfMan.registerDefault("npcpatch", false);
 }
 
 void EoBCoreEngine::readSettings() {
 	_configHpBarGraphs = ConfMan.getBool("hpbargraphs");
 	_configMouseBtSwap = ConfMan.getBool("mousebtswap");
 	_configADDRuleEnhancements = ConfMan.getBool("addrules");
+	_configEnhancedReload = ConfMan.getBool("mreload");
+	_configNPCPatch = (_flags.gameID == GI_EOB1) ? ConfMan.getBool("npcpatch") : false;
 	_configSounds = ConfMan.getBool("sfx_mute") ? 0 : 1;
 	_configMusic = (_flags.platform == Common::kPlatformPC98 || _flags.platform == Common::kPlatformSegaCD) ? (ConfMan.getBool("music_mute") ? 0 : 1) : (_configSounds ? 1 : 0);
 
@@ -706,6 +713,9 @@ void EoBCoreEngine::writeSettings() {
 	ConfMan.setBool("hpbargraphs", _configHpBarGraphs);
 	ConfMan.setBool("mousebtswap", _configMouseBtSwap);
 	ConfMan.setBool("addrules", _configADDRuleEnhancements);
+	ConfMan.setBool("mreload", _configEnhancedReload);
+	if (_flags.gameID == GI_EOB1)
+		ConfMan.setBool("npcpatch", _configNPCPatch);
 	ConfMan.setBool("sfx_mute", _configSounds == 0);
 	if (_flags.platform == Common::kPlatformPC98 || _flags.platform == Common::kPlatformSegaCD)
 		ConfMan.setBool("music_mute", _configMusic == 0);
@@ -744,6 +754,7 @@ void EoBCoreEngine::runLoop() {
 	_runFlag = true;
 
 	while (!shouldQuit() && _runFlag) {
+		uint32 frameEnd = _system->getMillis() + 8;	
 		checkPartyStatus(true);
 		checkInput(_activeButtons, true, 0);
 		removeInputTop();
@@ -770,6 +781,7 @@ void EoBCoreEngine::runLoop() {
 		snd_updateLevelScore();
 		snd_updateEnvironmentalSfx(0);
 		turnUndeadAuto();
+		delayUntil(frameEnd);
 	}
 }
 
@@ -1430,7 +1442,7 @@ void EoBCoreEngine::initNpc(int npcIndex) {
 	 * "sister"), by the portrait and by the character sheet in the
 	 * official Clue Book.
 	 */
-	if (_configADDRuleEnhancements) {
+	if (_configNPCPatch) {
 		if (_flags.gameID == GI_EOB1) {
 			if (npcIndex == 1) {
 				debugC(1, kDebugLevelMain, "Patching Beohram to be a paladin");

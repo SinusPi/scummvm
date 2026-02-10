@@ -69,7 +69,7 @@ public:
 
 			_binaryTransparent = false;
 		} else {
-			const Graphics::PixelFormat textureFormat(4, 8, 8, 8, 8, 0, 8, 16, 24);
+			const Graphics::PixelFormat textureFormat = Graphics::PixelFormat::createFormatRGBA32();
 			_surface.convertFrom(surface, textureFormat);
 
 			Graphics::PixelBuffer dataBuffer(textureFormat, (byte *)const_cast<void *>(_surface.getPixels()));
@@ -397,7 +397,20 @@ void BlitImage::tglBlitRLE(int dstX, int dstY, int srcX, int srcY, int srcWidth,
 		lineIndex++;
 	}
 
-	if (_binaryTransparent || (kDisableBlending || !kEnableAlphaBlending)) { // If bitmap is binary transparent or if  we need complex forms of blending (not just alpha) we need to use writePixel, which is slower
+	if (_opaque) { // This is the degenerate case of RLE where the whole image is affected
+		for (int y = 0; y < clampHeight; y++) {
+			if (kDisableColoring) {
+				memcpy(dstBuf.getRawBuffer(y * fbWidth),
+					srcBuf.getRawBuffer(y * _surface.w), clampWidth * kBytesPerPixel);
+			} else {
+				for(int x = 0; x < clampWidth; x++) {
+					byte aDst, rDst, gDst, bDst;
+					srcBuf.getARGBAt(y * _surface.w + x, aDst, rDst, gDst, bDst);
+					c->fb->writePixel((dstX + x) + (dstY + y) * fbWidth, aDst * aTint, rDst * rTint, gDst * gTint, bDst * bTint);
+				}
+			}
+		}
+	} else if (_binaryTransparent || (kDisableBlending || !kEnableAlphaBlending)) { // If bitmap is binary transparent or if  we need complex forms of blending (not just alpha) we need to use writePixel, which is slower
 		while (lineIndex < _lines.size() && _lines[lineIndex]._y < maxY) {
 			const BlitImage::Line &l = _lines[lineIndex];
 			if (l._x < maxX && l._x + l._length > srcX) {

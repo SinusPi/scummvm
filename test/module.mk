@@ -5,11 +5,16 @@
 #
 ######################################################################
 
-TESTS        := $(srcdir)/test/common/*.h $(srcdir)/test/common/formats/*.h $(srcdir)/test/audio/*.h $(srcdir)/test/math/*.h $(srcdir)/test/image/*.h
+TESTS        := $(srcdir)/test/common/*.h \
+	$(srcdir)/test/common/compression/*.h \
+	$(srcdir)/test/common/formats/*.h \
+	$(srcdir)/test/audio/*.h \
+	$(srcdir)/test/math/*.h \
+	$(srcdir)/test/image/*.h
 TEST_LIBS    :=
 
 ifdef POSIX
-TEST_LIBS += test/null_osystem.o \
+TEST_LIBS += test/system/null_osystem.o \
 	backends/fs/posix/posix-fs-factory.o \
 	backends/fs/posix/posix-fs.o \
 	backends/fs/posix/posix-iostream.o \
@@ -19,13 +24,17 @@ TEST_LIBS += test/null_osystem.o \
 endif
 
 ifdef WIN32
-TEST_LIBS += test/null_osystem.o \
+TEST_LIBS += test/system/null_osystem.o \
 	backends/fs/windows/windows-fs-factory.o \
 	backends/fs/windows/windows-fs.o \
 	backends/fs/abstract-fs.o \
 	backends/fs/stdiostream.o \
 	backends/modular-backend.o \
 	backends/platform/sdl/win32/win32_wrapper.o
+endif
+
+ifdef USE_TINYGL
+TESTS += $(srcdir)/test/graphics/tinygl*.h
 endif
 
 TEST_LIBS +=	audio/libaudio.a math/libmath.a common/formats/libformats.a common/compression/libcompression.a common/libcommon.a image/libimage.a graphics/libgraphics.a
@@ -36,13 +45,15 @@ ifeq ($(ENABLE_WINTERMUTE), STATIC_PLUGIN)
 endif
 
 ifeq ($(ENABLE_ULTIMA), STATIC_PLUGIN)
-ifdef ENABLE_ULTIMA1
-	TESTS += $(srcdir)/test/engines/ultima/shared/*/*.h
-endif
 ifdef ENABLE_ULTIMA8
 	TESTS += $(srcdir)/test/engines/ultima/ultima8/*/*.h
 endif
 	TEST_LIBS += engines/ultima/libultima.a
+endif
+
+ifeq ($(ENABLE_TWINE), STATIC_PLUGIN)
+	TESTS += $(srcdir)/test/engines/twine/*.h
+	TEST_LIBS += engines/twine/libtwine.a
 endif
 
 #
@@ -81,7 +92,7 @@ test/runner.cpp: $(TESTS) $(srcdir)/test/module.mk
 
 clean: clean-test
 clean-test:
-	-$(RM) test/runner.cpp test/runner test/engine-data/encoding.dat test/null_osystem.o
+	-$(RM) test/runner.cpp test/runner test/engine-data/encoding.dat test/system/null_osystem.o
 	-rmdir test/engine-data
 
 test/engine-data/encoding.dat: $(srcdir)/dists/engine-data/encoding.dat

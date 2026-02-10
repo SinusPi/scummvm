@@ -68,14 +68,14 @@ void ws_DumpMachine(machine *m, Common::WriteStream *logFile) {
 			// Loop through the main set of registers, and dump out the contents
 			for (i = 0; i < IDX_COUNT; i++) {
 				tempFloat = (float)(myRegs[i] >> 16) + (float)((float)(myRegs[i] & 0xffff) / (float)65536);
-				logFile->writeString(Common::String::format("\t%d\t%s:\t\t%.2f\t\t0x%08" PRIx64 "\n", i, myRegLabels[i], tempFloat, (int64)myRegs[i]));
+				logFile->writeString(Common::String::format("\t%d\t%s:\t\t%.2f\t\t0x%08" PRIxPTR "\n", i, myRegLabels[i], tempFloat, myRegs[i]));
 			}
 
 			// If the anim8 has extra local regs
 			if (myAnim8->numLocalVars > 0) {
 				for (i = IDX_COUNT; i < IDX_COUNT + myAnim8->numLocalVars; i++) {
 					tempFloat = (float)(myRegs[i] >> 16) + (float)((float)(myRegs[i] & 0xffff) / (float)65536);
-					logFile->writeString(Common::String::format("\t%d\tlocal.%d:\t\t%.2f\t\t0x%08" PRIx64 "\n", i, i - IDX_COUNT, tempFloat, (int64)myRegs[i]));
+					logFile->writeString(Common::String::format("\t%d\tlocal.%d:\t\t%.2f\t\t0x%08" PRIxPTR "\n", i, i - IDX_COUNT, tempFloat, myRegs[i]));
 				}
 			}
 			logFile->writeString(Common::String::format("\n"));
@@ -96,17 +96,9 @@ void ws_DumpMachine(machine *m, Common::WriteStream *logFile) {
 	}
 }
 
-void ws_Error(machine *m, int32 errorType, trigraph errorCode, const char *errMsg) {
-	char  description[MAX_STRING_SIZE];
-
-	// Find the error description
-	error_look_up(errorCode, description);
-
+void ws_Error(machine *m, const char *errMsg) {
 	// Open the logFile
 	Common::OutSaveFile *logFile = g_system->getSavefileManager()->openForSaving("ws_mach.log");
-
-	// Give the WS debugger a chance to indicate the error to the apps programmer
-	dbg_WSError(logFile, m, errorType, description, errMsg, _GWS(pcOffsetOld));
 
 	// Dump out the machine to the logFile
 	ws_DumpMachine(m, logFile);
@@ -116,7 +108,7 @@ void ws_Error(machine *m, int32 errorType, trigraph errorCode, const char *errMs
 		f_io_close(logFile);
 
 	// Now we fatal abort
-	error_show(FL, errorCode, errMsg);
+	error_show(FL, errMsg);
 }
 
 void ws_LogErrorMsg(const char *filename, uint32 line, const char *fmt, ...) {
@@ -146,7 +138,7 @@ static void drawSprite(CCB *myCCB, Anim8 *myAnim8, Buffer *halScrnBuf, Buffer *s
 		// Make sure the sprite is still in memory
 		if (!source->sourceHandle || !*(source->sourceHandle)) {
 			ws_LogErrorMsg(FL, "Sprite series is no longer in memory.");
-			ws_Error(myAnim8->myMachine, ERR_INTERNAL, 0x02ff, "Error during ws_DoDisplay()");
+			ws_Error(myAnim8->myMachine, "Error during ws_DoDisplay()");
 		}
 
 		// Lock the sprite handle
@@ -186,8 +178,11 @@ static void drawSprite(CCB *myCCB, Anim8 *myAnim8, Buffer *halScrnBuf, Buffer *s
 
 void ws_DoDisplay(Buffer *background, int16 *depth_table, Buffer *screenCodeBuff,
 		uint8 *myPalette, uint8 *ICT, bool updateVideo) {
+
+	if (!background)
+		error("ws_DoDisplay : background not set");
+
 	CCB *myCCB;
-	ScreenContext *myScreen;
 	RectList *myRect;
 	RectList *drawRectList;
 	int32 status;
@@ -195,7 +190,8 @@ void ws_DoDisplay(Buffer *background, int16 *depth_table, Buffer *screenCodeBuff
 	M4Rect *currRect;
 	bool breakFlag;
 
-	if (((myScreen = vmng_screen_find(_G(gameDrawBuff), &status)) == nullptr) || (status != SCRN_ACTIVE)) {
+	ScreenContext *myScreen = vmng_screen_find(_G(gameDrawBuff), &status);
+	if ((myScreen == nullptr) || (status != SCRN_ACTIVE)) {
 		return;
 	}
 
@@ -239,7 +235,7 @@ void ws_DoDisplay(Buffer *background, int16 *depth_table, Buffer *screenCodeBuff
 
 	// The drawRectList now contains all the areas of the screen that need the background updated
 	// Update the background behind the current rect list - if we are in greyMode, we do this later
-	if (!greyMode && background && background->data) {
+	if (!greyMode && background->data) {
 		myRect = drawRectList;
 
 		while (myRect) {
@@ -310,7 +306,7 @@ void ws_DoDisplay(Buffer *background, int16 *depth_table, Buffer *screenCodeBuff
 	} while (!breakFlag);
 
 	// Handle update background rect area
-	if (greyMode && background && background->data) {
+	if (greyMode && background->data) {
 		myRect = drawRectList;
 
 		while (myRect) {
@@ -361,11 +357,10 @@ void ws_DoDisplay(Buffer *background, int16 *depth_table, Buffer *screenCodeBuff
 
 void ws_hal_RefreshWoodscriptBuffer(cruncher *myCruncher, Buffer *background,
 		int16 *depth_table, Buffer *screenCodes, uint8 *myPalette, uint8 *ICT) {
-	uint8 myDepth;
 	Buffer drawSpriteBuff;
 	DrawRequest spriteDrawReq;
 
-	if ((!background) || (!background->data))
+	if (!background || !background->data)
 		return;
 
 	term_message("Refresh");
@@ -384,8 +379,7 @@ void ws_hal_RefreshWoodscriptBuffer(cruncher *myCruncher, Buffer *background,
 				// Make sure the series is still in memory
 				if ((!myCCB->source->sourceHandle) || (!*(myCCB->source->sourceHandle))) {
 					ws_LogErrorMsg(FL, "Sprite series is no longer in memory.");
-					ws_Error(myAnim8->myMachine, ERR_INTERNAL, 0x02ff,
-						"Error discovered during ws_hal_RefreshWoodscriptBuffer()");
+					ws_Error(myAnim8->myMachine, "Error discovered during ws_hal_RefreshWoodscriptBuffer()");
 				}
 
 				// Lock the sprite handle
@@ -405,10 +399,13 @@ void ws_hal_RefreshWoodscriptBuffer(cruncher *myCruncher, Buffer *background,
 				drawSpriteBuff.encoding = (uint8)myCCB->source->encoding;
 			drawSpriteBuff.data = myCCB->source->data;
 
-			if (!depth_table || !screenCodes || !screenCodes->data)
-				myDepth = 0;
-			else
-				myDepth = (uint8)(myCCB->layer >> 8);
+			if (!depth_table || !screenCodes || !screenCodes->data) {
+				spriteDrawReq.srcDepth = 0;
+				spriteDrawReq.depthCode = nullptr;
+			} else {
+				spriteDrawReq.srcDepth = (uint8)(myCCB->layer >> 8);
+				spriteDrawReq.depthCode = screenCodes->data;
+			}
 
 			spriteDrawReq.Src = (Buffer *)&drawSpriteBuff;
 			spriteDrawReq.Dest = halScrnBuf;
@@ -416,8 +413,6 @@ void ws_hal_RefreshWoodscriptBuffer(cruncher *myCruncher, Buffer *background,
 			spriteDrawReq.y = myCCB->currLocation->y1;
 			spriteDrawReq.scaleX = myCCB->scaleX;
 			spriteDrawReq.scaleY = myCCB->scaleY;
-			spriteDrawReq.srcDepth = myDepth;
-			spriteDrawReq.depthCode = screenCodes->data;
 			spriteDrawReq.Pal = myPalette;
 			spriteDrawReq.ICT = ICT;
 
@@ -477,19 +472,17 @@ void GetBezPoint(frac16 *x, frac16 *y, frac16 *coeffs, frac16 tVal) {
 				MulSF16(tVal, coeffs[1])))));
 }
 
-bool InitCCB(CCB *myCCB) {
+void InitCCB(CCB *myCCB) {
 	myCCB->flags = CCB_SKIP;
 	myCCB->source = nullptr;
-	if ((myCCB->currLocation = (M4Rect *)mem_alloc(sizeof(M4Rect), "Rectangle")) == nullptr) {
-		return false;
-	}
+	myCCB->currLocation = (M4Rect *)mem_alloc(sizeof(M4Rect), "Rectangle");
+
 	myCCB->currLocation->x1 = -1;
 	myCCB->currLocation->y1 = -1;
 	myCCB->currLocation->x2 = -1;
 	myCCB->currLocation->y2 = -1;
-	if ((myCCB->newLocation = (M4Rect *)mem_alloc(sizeof(M4Rect), "Rectangle")) == nullptr) {
-		return false;
-	}
+	myCCB->newLocation = (M4Rect *)mem_alloc(sizeof(M4Rect), "Rectangle");
+
 	myCCB->newLocation->x1 = -1;
 	myCCB->newLocation->y1 = -1;
 	myCCB->newLocation->x2 = -1;
@@ -504,7 +497,6 @@ bool InitCCB(CCB *myCCB) {
 	myCCB->myStream = nullptr;
 	myCCB->seriesName = nullptr;
 
-	return true;
 }
 
 void HideCCB(CCB *myCCB) {
@@ -528,42 +520,10 @@ void ShowCCB(CCB *myCCB) {
 	myCCB->flags &= ~CCB_HIDE;
 }
 
-void MoveCCB(CCB *myCCB, frac16 deltaX, frac16 deltaY) {
-	if (!myCCB || !myCCB->source) {
-		error_show(FL, 'WSIC');
-	}
-
-	myCCB->newLocation->x1 = myCCB->currLocation->x1 + (deltaX >> 16);
-	myCCB->newLocation->y1 = myCCB->currLocation->y1 + (deltaY >> 16);
-	myCCB->newLocation->x2 = myCCB->currLocation->x2 + (deltaX >> 16);
-	myCCB->newLocation->y2 = myCCB->currLocation->y2 + (deltaY >> 16);
-
-	if (myCCB->flags & CCB_STREAM) {
-		if (!myCCB->maxArea) {
-			if ((myCCB->maxArea = (M4Rect *)mem_alloc(sizeof(M4Rect), "Rectangle")) == nullptr) {
-				error_show(FL, 'OOM!');
-			}
-			myCCB->maxArea->x1 = myCCB->newLocation->x1;
-			myCCB->maxArea->y1 = myCCB->newLocation->y1;
-			myCCB->maxArea->x2 = myCCB->newLocation->x2;
-			myCCB->maxArea->y2 = myCCB->newLocation->y2;
-		} else {
-			myCCB->maxArea->x1 = imath_min(myCCB->maxArea->x1, myCCB->newLocation->x1);
-			myCCB->maxArea->y1 = imath_min(myCCB->maxArea->y1, myCCB->newLocation->y1);
-			myCCB->maxArea->x2 = imath_max(myCCB->maxArea->x2, myCCB->newLocation->x2);
-			myCCB->maxArea->y2 = imath_max(myCCB->maxArea->y2, myCCB->newLocation->y2);
-		}
-	}
-
-	if ((myCCB->source->w != 0) && (myCCB->source->h != 0)) {
-		myCCB->flags |= CCB_REDRAW;
-	}
-}
-
 void KillCCB(CCB *myCCB, bool restoreFlag) {
-	if (!myCCB) {
-		error_show(FL, 'WSIC');
-	}
+	if (!myCCB)
+		error_show(FL, "myCCB not set");
+
 	if (restoreFlag && (!(myCCB->flags & CCB_SKIP)) && (!(myCCB->flags & CCB_HIDE))) {
 		if ((myCCB->flags & CCB_STREAM) && myCCB->maxArea) {
 			vmng_AddRectToRectList(&_GWS(deadRectList), myCCB->maxArea->x1, myCCB->maxArea->y1,
@@ -594,12 +554,12 @@ void KillCCB(CCB *myCCB, bool restoreFlag) {
 
 void Cel_msr(Anim8 *myAnim8) {
 	if (!myAnim8) {
-		error_show(FL, 'WSAI');
+		error_show(FL, "myAnim8 not set");
 	}
 
 	CCB *myCCB = myAnim8->myCCB;
 	if ((!myCCB) || (!myCCB->source)) {
-		error_show(FL, 'WSIC');
+		error_show(FL, "myCCB not set");
 	}
 
 	if ((myCCB->source->w == 0) || (myCCB->source->h == 0)) {
@@ -608,7 +568,7 @@ void Cel_msr(Anim8 *myAnim8) {
 
 	frac16 *myRegs = myAnim8->myRegs;
 	if (!myRegs) {
-		error_show(FL, 'WSAI');
+		error_show(FL, "myRegs not set");
 	}
 
 	const int32 scaler = FixedMul(myRegs[IDX_S], 100 << 16) >> 16;
@@ -620,9 +580,8 @@ void Cel_msr(Anim8 *myAnim8) {
 		myCCB->scaleX, myCCB->scaleY, myCCB->source->w, myCCB->source->h, myCCB->newLocation);
 	if (myCCB->flags & CCB_STREAM) {
 		if (!myCCB->maxArea) {
-			if ((myCCB->maxArea = (M4Rect *)mem_alloc(sizeof(M4Rect), "Rectangle")) == nullptr) {
-				error_show(FL, 'OOM!');
-			}
+			myCCB->maxArea = (M4Rect *)mem_alloc(sizeof(M4Rect), "Rectangle");
+
 			myCCB->maxArea->x1 = myCCB->newLocation->x1;
 			myCCB->maxArea->y1 = myCCB->newLocation->y1;
 			myCCB->maxArea->x2 = myCCB->newLocation->x2;
@@ -642,14 +601,11 @@ void Cel_msr(Anim8 *myAnim8) {
 	myCCB->layer = imath_max(0, myAnim8->myLayer);
 	myCCB->flags &= ~CCB_SKIP;
 	myCCB->flags |= CCB_REDRAW;
-	return;
 }
 
 void ws_OverrideCrunchTime(machine *m) {
-	if ((!m) || (!m->myAnim8)) {
-		return;
-	}
-	m->myAnim8->switchTime = 0;
+	if (m && m->myAnim8)
+		m->myAnim8->switchTime = 0;
 }
 
 } // End of namespace M4

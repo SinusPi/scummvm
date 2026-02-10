@@ -384,6 +384,7 @@ String Path::baseName() const {
 		return String();
 	}
 
+	bool escaped = isEscaped();
 	size_t last = _str.size();
 	if (isSeparatorTerminated()) {
 		last--;
@@ -396,11 +397,15 @@ String Path::baseName() const {
 
 	if (separatorPos != String::npos) {
 		begin += separatorPos + 1;
-	} else if (isEscaped()) {
+	} else if (escaped) {
 		// unescape uses the real start, not the escape marker
 		begin++;
 	}
 	end += last;
+
+	if (!escaped) {
+		return String(begin, end);
+	}
 
 	return unescape(kNoSeparator, begin, end);
 }
@@ -607,6 +612,53 @@ Path &Path::removeTrailingSeparators() {
 	while (_str.size() > 1 && _str.lastChar() == SEPARATOR) {
 		_str.deleteLastChar();
 	}
+	return *this;
+}
+
+Path &Path::removeExtension(const char *ext) {
+	if (_str.empty()) {
+		return *this;
+	}
+
+	// Find the last separator
+	size_t last = _str.size() - 1;
+	if (isSeparatorTerminated()) {
+		last--;
+	}
+
+	size_t sepPos = findLastSeparator(last);
+	const char *begin;
+	if (sepPos == String::npos) {
+		// No separator found, we are a single component
+		begin = _str.c_str();
+	} else {
+		// We have a separator, so we can find the last component
+		begin = _str.c_str() + sepPos + 1;
+	}
+
+	const char *end = _str.c_str() + _str.size();
+	String component(begin, end);
+
+	// If the last component is shorter than the extension,
+	// or it is punycode encoded, we do not change the path
+	if ((ext && component.size() < strlen(ext)) || punycode_hasprefix(component))
+		return *this;
+
+	if (!ext) {
+		// Remove the last extension, if any
+		size_t dotPos = component.findLastOf('.');
+		if (dotPos == String::npos) {
+			return *this; // No change
+		}
+
+		_str.chop(end - begin - dotPos);
+
+		return *this;
+	} else if (component.hasSuffix(ext)) {
+		// Remove the given extension, if it matches
+		_str.chop(strlen(ext));
+	}
+
 	return *this;
 }
 
@@ -1032,6 +1084,18 @@ bool Path::punycodeNeedsEncode() const {
 			if (result) return result;
 
 			result = punycode_needEncode(in);
+			return result;
+		}, tmp);
+}
+
+bool Path::punycodeIsEncoded() const {
+	bool tmp = false;
+	return reduceComponents<bool &>(
+		[](bool &result, const String &in, bool last) -> bool & {
+			// If we already are encoded, we still are
+			if (result) return result;
+
+			result = punycode_hasprefix(in);
 			return result;
 		}, tmp);
 }

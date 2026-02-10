@@ -29,13 +29,13 @@ namespace Freescape {
 
 void EclipseEngine::initZX() {
 	_viewArea = Common::Rect(56, 36, 265, 139);
-	_maxEnergy = 63;
-	_maxShield = 63;
+	_maxEnergy = 25;
+	_maxShield = 50;
 
 	_soundIndexShoot = 5;
-	_soundIndexCollide = -1;
-	_soundIndexFall = 3;
-	_soundIndexClimb = 4;
+	_soundIndexCollide = -1; // Scripted
+	_soundIndexStepDown = 12;
+	_soundIndexStepUp = 12;
 	_soundIndexMenu = -1;
 	_soundIndexStart = 7;
 	_soundIndexAreaChange = 7;
@@ -57,14 +57,14 @@ void EclipseEngine::loadAssetsZXFullGame() {
 
 	file.open("totaleclipse.zx.title");
 	if (file.isOpen()) {
-		_title = loadAndCenterScrImage(&file);
+		_title = loadAndConvertScrImage(&file);
 	} else
 		error("Unable to find totaleclipse.zx.title");
 
 	file.close();
 	file.open("totaleclipse.zx.border");
 	if (file.isOpen()) {
-		_border = loadAndCenterScrImage(&file);
+		_border = loadAndConvertScrImage(&file);
 	} else
 		error("Unable to find totaleclipse.zx.border");
 	file.close();
@@ -89,19 +89,6 @@ void EclipseEngine::loadAssetsZXFullGame() {
 		_areaMap[42]->_underFireBackgroundColor = 0;
 	}
 
-	for (auto &it : _areaMap) {
-		it._value->addStructure(_areaMap[255]);
-
-		if (isEclipse2() && it._value->getAreaID() == 1)
-			continue;
-
-		if (isEclipse2() && it._value->getAreaID() == _startArea)
-			continue;
-
-		for (int16 id = 183; id < 207; id++)
-			it._value->addObjectFromArea(id, _areaMap[255]);
-	}
-
 	_indicators.push_back(loadBundledImage("eclipse_ankh_indicator"));
 
 	for (auto &it : _indicators)
@@ -113,14 +100,14 @@ void EclipseEngine::loadAssetsZXDemo() {
 
 	file.open("totaleclipse.zx.title");
 	if (file.isOpen()) {
-		_title = loadAndCenterScrImage(&file);
+		_title = loadAndConvertScrImage(&file);
 	} else
 		error("Unable to find totaleclipse.zx.title");
 
 	file.close();
 	file.open("totaleclipse.zx.border");
 	if (file.isOpen()) {
-		_border = loadAndCenterScrImage(&file);
+		_border = loadAndConvertScrImage(&file);
 	} else
 		error("Unable to find totaleclipse.zx.border");
 	file.close();
@@ -143,13 +130,6 @@ void EclipseEngine::loadAssetsZXDemo() {
 		load8bitBinary(&file, 0x6781, 4);
 	} else
 		error("Unknown ZX Spectrum demo variant");
-
-	for (auto &it : _areaMap) {
-		it._value->_name = "  NOW TRAINING  ";
-		it._value->addStructure(_areaMap[255]);
-		for (int16 id = 183; id < 207; id++)
-			it._value->addObjectFromArea(id, _areaMap[255]);
-	}
 
 	_indicators.push_back(loadBundledImage("eclipse_ankh_indicator"));
 
@@ -199,8 +179,7 @@ void EclipseEngine::drawZXUI(Graphics::Surface *surface) {
 	} else if (!_currentAreaMessages.empty())
 		drawStringInSurface(_currentArea->_name, 102, 141, back, yellow, surface);
 
-	Common::String encodedScoreStr = getScoreString(score);
-	drawStringInSurface(encodedScoreStr, 135, 11, back, gray, surface);
+	drawScoreString(score, 135, 11, back, gray, surface);
 
 	Common::String shieldStr = Common::String::format("%d", shield);
 

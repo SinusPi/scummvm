@@ -32,43 +32,27 @@ namespace M4 {
 #define BOTTOM_EDGE 0x04
 #define RIGHT_EDGE  0x08
 
-bool InitRails() {
-	int32 i;
-
+void InitRails() {
 	// Register with the stash the frequently used structs
-	if (!mem_register_stash_type(&_G(rails).memtypePATHN, sizeof(pathNode), 32, "+PATHNODE")) {
-		return false;
-	}
+	mem_register_stash_type(&_G(rails).memtypePATHN, sizeof(pathNode), 32, "+PATHNODE");
 
 	// Create the stack. Since any path through a series of nodes can have at most MAXRAILNODES...
-	if ((_G(rails).stackBottom = (railNode **)mem_alloc(sizeof(railNode *) * MAXRAILNODES, STR_RAILNODE)) == nullptr) {
-		return false;
-	}
+	_G(rails).stackBottom = (railNode **)mem_alloc(sizeof(railNode *) * MAXRAILNODES, STR_RAILNODE);
 
 	// Allocate the array of railNode pointers and initialize...
-	if ((_G(rails).myNodes = (railNode **)mem_alloc(sizeof(railNode *) * MAXRAILNODES, STR_RAILNODE)) == nullptr) {
-		return false;
-	}
+	_G(rails).myNodes = (railNode **)mem_alloc(sizeof(railNode *) * MAXRAILNODES, STR_RAILNODE);
 
-	for (i = 0; i < MAXRAILNODES; i++) {
+	for (int32 i = 0; i < MAXRAILNODES; i++) {
 		_G(rails).myNodes[i] = nullptr;
 	}
 
 	// Calculate the size of the edge table, allocate, and initialize
 	// The edge table stores the upper triangle of a square matrix.
 	const int32 edgeTableSize = (MAXRAILNODES * (MAXRAILNODES - 1)) >> 1;
-	if ((_G(rails).myEdges = (int16 *)mem_alloc(sizeof(int16) * edgeTableSize, "edge table")) == nullptr) {
-		return false;
-	}
-
-	for (i = 0; i < edgeTableSize; i++) {
-		_G(rails).myEdges[i] = 0;
-	}
+	_G(rails).myEdges = (int16 *)mem_alloc(sizeof(int16) * edgeTableSize, "edge table");
 
 	// Set the parameters and return
 	_G(rails).noWalkRectList = nullptr;
-
-	return true;
 }
 
 
@@ -104,7 +88,7 @@ void ClearRails(void) {
 	}
 
 	if (_G(rails).myEdges) {
-		int32 edgeTableSize = (MAXRAILNODES * (MAXRAILNODES - 1)) >> 1;
+		const int32 edgeTableSize = (MAXRAILNODES * (MAXRAILNODES - 1)) >> 1;
 		for (i = 0; i < edgeTableSize; i++) {
 			_G(rails).myEdges[i] = 0;
 		}
@@ -121,18 +105,13 @@ void ClearRails(void) {
 
 
 noWalkRect *intr_add_no_walk_rect(int32 x1, int32 y1, int32 x2, int32 y2, int32 altX, int32 altY, Buffer *walkCodes) {
-	noWalkRect *newRect;
-
 	// Parameter verification
 	if ((x2 < x1) || (y2 < y1)) {
 		return nullptr;
 	}
 
 	// Create new noWalkRect structure
-	if ((newRect = (noWalkRect *)mem_alloc(sizeof(noWalkRect), "intr noWalkRect")) == nullptr) {
-		error_show(FL, 'IADN', "rect size: %d %d %d %d", x1, y1, x2, y2);
-		return nullptr;
-	}
+	noWalkRect *newRect = (noWalkRect *)mem_alloc(sizeof(noWalkRect), "intr noWalkRect");
 
 	// Initialize the new rect
 	newRect->x1 = x1;
@@ -141,8 +120,9 @@ noWalkRect *intr_add_no_walk_rect(int32 x1, int32 y1, int32 x2, int32 y2, int32 
 	newRect->y2 = y2;
 
 	// Add the alternate walkto node - this node must exist
-	if ((newRect->alternateWalkToNode = AddRailNode(altX, altY, walkCodes, false)) < 0) {
-		error_show(FL, 'IADN', "could not add node. coord: %d %d", altX, altY);
+	newRect->alternateWalkToNode = AddRailNode(altX, altY, walkCodes, false);
+	if (newRect->alternateWalkToNode < 0) {
+		error_show(FL, "could not add node. coord: %d %d", altX, altY);
 	}
 
 	// Now add the corner nodes.  Not as important if these don't exist
@@ -449,8 +429,7 @@ void CreateEdge(int32 node1, int32 node2, Buffer *walkCodes) {
 			error_term = xDiff >> 1;
 
 			// Loop along the x axis and adjust scanY as necessary
-			scanX = x1;
-			for (i = 0; ((i <= xDiff) && valid && (!finished)); i++) {
+			for (i = 0; ((i <= xDiff) && valid && !finished); i++) {
 
 				// Check if we have scanned off the edge of the buffer
 				if ((scanX >= width) || ((y_unit > 0) && (scanY >= height)) || ((y_unit < 0) && (scanY < 0))) {
@@ -503,8 +482,7 @@ void CreateEdge(int32 node1, int32 node2, Buffer *walkCodes) {
 			error_term = yDiff >> 1;
 
 			// Loop along the y axis and adjust scanX as necessary
-			scanY = y1;
-			for (i = 0; ((i <= yDiff) && valid && (!finished)); i++) {
+			for (i = 0; ((i <= yDiff) && valid && !finished); i++) {
 				// Check if we have scanned off the edge of the buffer
 				if (scanX >= width || ((y_unit > 0) && (scanY >= height)) || ((y_unit < 0) && (scanY < 0))) {
 					finished = true;
@@ -525,7 +503,7 @@ void CreateEdge(int32 node1, int32 node2, Buffer *walkCodes) {
 					// Update the error term
 					error_term += xDiff;
 
-					// If the error_term has exceeded the xdiff, we need to move one unit along the y axis
+					// If the error_term has exceeded the xDiff, we need to move one unit along the y axis
 					if (error_term >= yDiff) {
 						// Reset the error term
 						error_term -= yDiff;
@@ -604,10 +582,8 @@ int32 AddRailNode(int32 x, int32 y, Buffer *walkCodes, bool restoreEdges) {
 
 	if (i < MAXRAILNODES) {
 		railNode *newNode = (railNode *)mem_alloc(sizeof(railNode), "railNode");
-		if (newNode == nullptr) {
-			return -1;
-		}
-		newNode->nodeID = (Byte)i;
+
+		newNode->nodeID = (byte)i;
 		newNode->x = (int16)x;
 		newNode->y = (int16)y;
 		_G(rails).myNodes[i] = newNode;
@@ -666,11 +642,15 @@ bool RailNodeExists(int32 nodeID, int32 *nodeX, int32 *nodeY) {
 }
 
 int16 GetEdgeLength(int32 node1, int32 node2) {
-	if (!_G(rails).myEdges) return 0;
-	if (node1 == node2) return 0;
-	if (node2 < node1) {
+	if (!_G(rails).myEdges)
+		return 0;
+
+	if (node1 == node2)
+		return 0;
+
+	if (node2 < node1)
 		SWAP(node1, node2);
-	}
+
 	// If node1 is y and node2 is x, first find table entry ie. tableWidth * y + x, the subtract
 	// n(n+1)/2  since only the upper triangle of the table is stored...
 	const int32 index = (MAXRAILNODES - 1) * node1 + node2 - 1 - (node1 * (node1 + 1) >> 1);
@@ -688,8 +668,6 @@ void DisposePath(railNode *pathStart) {
 }
 
 static railNode *DuplicatePath(railNode *pathStart) {
-	railNode *newNode;
-
 	// Initialize pointers
 	railNode *firstNode = nullptr;
 	railNode *prevNode = nullptr;
@@ -701,10 +679,8 @@ static railNode *DuplicatePath(railNode *pathStart) {
 	while (pathNode) {
 
 		// Create a new railNode, and duplicate values
-		if ((newNode = (railNode *)mem_alloc(sizeof(railNode), "+RAIL")) == nullptr) {
-			error_show(FL, 'OOM!', "Could not alloc railNode");
-			return nullptr;
-		}
+		railNode *newNode = (railNode *)mem_alloc(sizeof(railNode), "+RAIL");
+
 		newNode->x = pathNode->x;
 		newNode->y = pathNode->y;
 		newNode->shortPath = nullptr;
@@ -747,10 +723,6 @@ railNode *CreateCustomPath(int coord, ...) {
 
 		// Create a new node struct
 		railNode *newNode = (railNode *)mem_alloc(sizeof(railNode), "railNode");
-		if (newNode == nullptr) {
-			error_show(FL, 'OOM!', "could not alloc railNode");
-			return nullptr;
-		}
 
 		// Set the new node values...
 		newNode->x = x;
@@ -847,8 +819,8 @@ bool GetShortestPath(int32 origID, int32 destID, railNode **shortPath) {
 
 		// Yes it is, therefore, we have a valid path, maybe the shortest...
 		if (edgeDist > 0) {
-			// Check whether the pathweight of the second last node + the edge to get to the last
-			// is less than the pathweight of the previously found shortest path
+			// Check whether the pathWeight of the second last node + the edge to get to the last
+			// is less than the pathWeight of the previously found shortest path
 			if (currNode->pathWeight + edgeDist < _G(rails).myNodes[destID]->pathWeight) {
 				// If so, store the new shortest path weight, and complete the path link
 				_G(rails).myNodes[destID]->pathWeight = (int16)(currNode->pathWeight + edgeDist);
@@ -915,7 +887,7 @@ bool GetShortestPath(int32 origID, int32 destID, railNode **shortPath) {
 						// For each different valid node, check to see if the currNode is adjacent to it
 						edgeDist = GetEdgeLength(currNode->nodeID, i);
 
-						// If it is a neighbor, and the pathweight reaching it through currNode is
+						// If it is a neighbor, and the pathWeight reaching it through currNode is
 						// less than the weight of any previous path that reached the same neighbor...
 						if ((edgeDist > 0) && ((currNode->pathWeight + edgeDist) < _G(rails).myNodes[i]->pathWeight)) {
 							// Now see if that neighbor is already part of the current shortest path
@@ -952,7 +924,7 @@ bool GetShortestPath(int32 origID, int32 destID, railNode **shortPath) {
 								}
 							} else {
 								// Else we don't know whether we can reach the destID from node i
-								// Set the pathweight of node i to the smaller value, and place it on the stack
+								// Set the pathWeight of node i to the smaller value, and place it on the stack
 								_G(rails).myNodes[i]->pathWeight = (int16)(currNode->pathWeight + edgeDist);
 								*_G(rails).stackTop++ = _G(rails).myNodes[i];
 							}

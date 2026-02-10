@@ -119,7 +119,7 @@ class RolloverToolkitXtraState : public Object<RolloverToolkitXtraState> {
 public:
 	RolloverToolkitXtraState() : Object<RolloverToolkitXtraState>("Rollover_Toolkit") {};
 
-	int lastSprite = 0;
+	Common::HashMap<int, int> lastSprite;
 };
 
 RolloverToolkitXtraObject::RolloverToolkitXtraObject(ObjectType ObjectType) :Object<RolloverToolkitXtraObject>("RolloverToolkit") {
@@ -140,8 +140,10 @@ Datum RolloverToolkitXtraObject::getProp(const Common::String &propName) {
 void RolloverToolkitXtra::open(ObjectType type, const Common::Path &path) {
 	RolloverToolkitXtraObject::initMethods(xlibMethods);
 	RolloverToolkitXtraObject *xobj = new RolloverToolkitXtraObject(type);
-	if (type == kXtraObj)
+	if (type == kXtraObj) {
 		g_lingo->_openXtras.push_back(xlibName);
+		g_lingo->_openXtraObjects.push_back(xobj);
+	}
 	g_lingo->exposeXObject(xlibName, xobj);
 	g_lingo->initBuiltIns(xlibBuiltins);
 	if (!g_lingo->_openXtrasState.contains("Rollover_Toolkit")) {
@@ -172,7 +174,8 @@ void RolloverToolkitXtra::m_CheckForRollovers(int nargs) {
 	// if it's new
 	//  - check if there's an on endRollover handler, provide old sprite as arg 1
 	//	- check if there's a on startRollover handler, provide new sprite as arg 1
-	Movie *movie = g_director->getCurrentMovie();
+	Window *window = g_director->getCurrentWindow();
+	Movie *movie = window->getCurrentMovie();
 	Score *score = movie->getScore();
 
 	if (!score) {
@@ -188,7 +191,8 @@ void RolloverToolkitXtra::m_CheckForRollovers(int nargs) {
 
 
 	Common::Point pos = g_director->getCurrentWindow()->getMousePos();
-	int lastSprite = state->lastSprite;
+	int lastSprite = state->lastSprite.getValOrDefault(window->getId(), 0);
+
 	int newSprite = score->getRollOverSpriteIDFromPos(pos);
 	if (newSprite != lastSprite && lastSprite != 0) {
 		// try and call endRollover(lastSprite)
@@ -198,7 +202,7 @@ void RolloverToolkitXtra::m_CheckForRollovers(int nargs) {
 		// try and call startRollover(lastSprite)
 		movie->queueInputEvent(kEventMouseEnter, newSprite, pos);
 	}
-	state->lastSprite = newSprite;
+	state->lastSprite[window->getId()] = newSprite;
 }
 
 

@@ -23,17 +23,14 @@
 #ifndef ULTIMA8_ULTIMA8
 #define ULTIMA8_ULTIMA8
 
-#include "common/events.h"
 #include "common/random.h"
 #include "common/stream.h"
 #include "graphics/screen.h"
-#include "ultima/shared/std/containers.h"
-#include "ultima/ultima8/usecode/intrinsics.h"
-#include "ultima/ultima8/misc/common_types.h"
+#include "ultima/detection.h"
 #include "ultima/ultima8/games/game_info.h"
 #include "ultima/ultima8/gfx/render_surface.h"
 #include "ultima/ultima8/metaengine.h"
-#include "ultima/detection.h"
+#include "ultima/ultima8/usecode/intrinsics.h"
 
 namespace Ultima {
 namespace Ultima8 {
@@ -57,7 +54,6 @@ class AvatarMoverProcess;
 class Texture;
 class AudioMixer;
 class ConfigFileManager;
-struct GameInfo;
 
 #define GAME_IS_U8 (Ultima8Engine::get_instance()->getGameInfo()->_type == GameInfo::GAME_U8)
 #define GAME_IS_REMORSE (Ultima8Engine::get_instance()->getGameInfo()->_type == GameInfo::GAME_REMORSE)
@@ -122,6 +118,7 @@ private:
 	//!< nor can Avatar start more usecode
 	bool _showEditorItems;   //!< If true, paint items with the SI_EDITOR flag
 	bool _showTouching;      //!< If true, highlight items touching Avatar
+	bool _hackMoverEnabled;  //!< If true, any item can be moved
 	int32 _timeOffset;
 	bool _hasCheated;
 	bool _cheatsEnabled;
@@ -248,6 +245,13 @@ public:
 	}
 	void setShowTouchingItems(bool flag) {
 		_showTouching = flag;
+	}
+
+	bool isHackMoverEnabled() const {
+		return _hackMoverEnabled;
+	}
+	void setHackMoverEnabled(bool flag) {
+		_hackMoverEnabled = flag;
 	}
 
 	bool isCrusaderTeleporting() const {

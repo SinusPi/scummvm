@@ -182,6 +182,8 @@ void OpenGLShaderRenderer::drawSkybox(Texture *texture, Math::Vector3d camera) {
 	glBindBuffer(GL_ARRAY_BUFFER, _cubemapTexCoordVBO);
 	if (texture->_width == 1008)
 		glBufferData(GL_ARRAY_BUFFER, sizeof(_skyUvs1008), _skyUvs1008, GL_DYNAMIC_DRAW);
+	else if (texture->_width == 672)
+		glBufferData(GL_ARRAY_BUFFER, sizeof(_skyUvs672), _skyUvs672, GL_DYNAMIC_DRAW);
 	else if (texture->_width == 128)
 		glBufferData(GL_ARRAY_BUFFER, sizeof(_skyUvs128), _skyUvs128, GL_DYNAMIC_DRAW);
 	else
@@ -261,7 +263,17 @@ void OpenGLShaderRenderer::renderPlayerShootBall(byte color, const Common::Point
 	if (_renderMode == Common::kRenderCGA || _renderMode == Common::kRenderZX) {
 		r = g = b = 255;
 	} else {
-		r = g = b = 255;
+		if (_renderMode == Common::kRenderHercG) {
+			// Hercules Green
+			r = b = 0;
+			g = 255;
+		} else if (_renderMode == Common::kRenderHercA) {
+			// Hercules Amber
+			r = 255;
+			g = 191;
+			b = 0;
+		} else
+			r = g = b = 255;
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_ONE_MINUS_DST_COLOR, GL_ZERO);
 	}
@@ -315,7 +327,17 @@ void OpenGLShaderRenderer::renderPlayerShootRay(byte color, const Common::Point 
 	if (_renderMode == Common::kRenderCGA || _renderMode == Common::kRenderZX) {
 		r = g = b = 255;
 	} else {
-		r = g = b = 255;
+		if (_renderMode == Common::kRenderHercG) {
+			// Hercules Green
+			r = b = 0;
+			g = 255;
+		} else if (_renderMode == Common::kRenderHercA) {
+			// Hercules Amber
+			r = 255;
+			g = 191;
+			b = 0;
+		} else
+			r = g = b = 255;
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_ONE_MINUS_DST_COLOR, GL_ZERO);
 	}
@@ -351,55 +373,154 @@ void OpenGLShaderRenderer::renderPlayerShootRay(byte color, const Common::Point 
 	glDepthMask(GL_TRUE);
 }
 
-void OpenGLShaderRenderer::drawCelestialBody(Math::Vector3d position, float radius, byte color) {
+void OpenGLShaderRenderer::drawCelestialBody(const Math::Vector3d position, float radius, byte color) {
+	// === Safety checks ===
+	if (!_triangleShader || radius <= 0.0f)
+		return;
+
+	// === Decode color from palette ===
 	uint8 r1, g1, b1, r2, g2, b2;
 	byte *stipple = nullptr;
 	getRGBAt(color, 0, r1, g1, b1, r2, g2, b2, stipple);
-
 	useColor(r1, g1, b1);
 
-	int triangleAmount = 20;
-	float twicePi = (float)(2.0 * M_PI);
-	float adj = 1.25; // Perspective correction
+	// === Build circular vertex fan ===
+	const int triangleAmount = 20;
+	const float twicePi = 2.0f * static_cast<float>(M_PI);
+	const float adj = 1.25f;
 
-	// Quick billboard effect inspired from this code:
-	// http://www.lighthouse3d.com/opengl/billboarding/index.php?billCheat
-	/*Math::Matrix4 mvpMatrix = _mvpMatrix;
+	Common::Array<float> verts;
 
-	for(int i = 2; i < 4; i++)
-		for(int j = 2; j < 4; j++ ) {
+	// Center vertex
+	verts.push_back(static_cast<float>(position.x()));
+	verts.push_back(static_cast<float>(position.y()));
+	verts.push_back(static_cast<float>(position.z()));
+
+	// Circle vertices in YZ plane (same as legacy code)
+	for (int i = 0; i <= triangleAmount; i++) {
+		float x = static_cast<float>(position.x());
+		float y = static_cast<float>(position.y()) + radius * cosf(i * twicePi / triangleAmount);
+		float z = static_cast<float>(position.z()) + adj * radius * sinf(i * twicePi / triangleAmount);
+		verts.push_back(x);
+		verts.push_back(y);
+		verts.push_back(z);
+	}
+
+	// === Apply billboard effect to MVP matrix ===
+	// Replicate the legacy code's matrix modification
+	Math::Matrix4 billboardMVP = _mvpMatrix;
+
+	// Zero out rotation for rows 1, 3 (skip row 2), set diagonal to 1.0
+	// This matches: for (int i = 1; i < 4; i++) for (int j = 0; j < 4; j++)
+	for (int i = 1; i < 4; i++) {
+		for (int j = 0; j < 4; j++) {
 			if (i == 2)
 				continue;
 			if (i == j)
-				_mvpMatrix.setValue(i, j, 1.0);
+				billboardMVP(i, j) = 2.5f;
 			else
-				_mvpMatrix.setValue(i, j, 0.0);
-		}*/
+				billboardMVP(i, j) = 0.0f;
+		}
+	}
 
+	// === Bind VBO ===
+	glBindBuffer(GL_ARRAY_BUFFER, _triangleVBO);
+	glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(float), verts.data(), GL_DYNAMIC_DRAW);
+
+	// === Set vertex attribute 0 (position) ===
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), nullptr);
+
+	// === Shader uniforms ===
 	_triangleShader->use();
+	_triangleShader->setUniform("mvpMatrix", billboardMVP);
 	_triangleShader->setUniform("useStipple", false);
-	_triangleShader->setUniform("mvpMatrix", _mvpMatrix);
 
+	// === Render settings ===
 	glDisable(GL_DEPTH_TEST);
 	glDepthMask(GL_FALSE);
 
-	copyToVertexArray(0, position);
+	// === Draw vertex fan ===
+	glDrawArrays(GL_TRIANGLE_FAN, 0, verts.size() / 3);
 
-	for (int i = 0; i <= triangleAmount; i++) {
-		float x = position.x();
-		float y = position.y() + (radius * cos(i *  twicePi / triangleAmount));
-		float z = position.z() + (adj * radius * sin(i * twicePi / triangleAmount));
-		copyToVertexArray(i + 1, Math::Vector3d(x, y, z));
+	if (r1 != r2 || g1 != g2 || b1 != b2) {
+		useStipple(true);
+		useColor(r2, g2, b2);
+		glDrawArrays(GL_TRIANGLE_FAN, 0, verts.size() / 3);
+		useStipple(false);
 	}
 
-	glBindBuffer(GL_ARRAY_BUFFER, _triangleVBO);
-	glBufferData(GL_ARRAY_BUFFER, (triangleAmount + 2) * 3 * sizeof(float), _verts, GL_DYNAMIC_DRAW);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), nullptr);
-	glDrawArrays(GL_TRIANGLE_FAN, 0, (triangleAmount + 2));
-
+	// === Restore state ===
 	glEnable(GL_DEPTH_TEST);
 	glDepthMask(GL_TRUE);
-	//_mvpMatrix = mvpMatrix;
+
+	// === Cleanup binding ===
+	glDisableVertexAttribArray(0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	_triangleShader->unbind();
+}
+
+void OpenGLShaderRenderer::drawAABB(const Math::AABB &aabb, uint8 r, uint8 g, uint8 b) {
+	if (!aabb.isValid())
+		return;
+
+	Math::Vector3d min = aabb.getMin();
+	Math::Vector3d max = aabb.getMax();
+
+	// calculate the 8 corners of the box
+	Math::Vector3d c[8];
+	c[0] = Math::Vector3d(min.x(), min.y(), min.z());
+	c[1] = Math::Vector3d(max.x(), min.y(), min.z());
+	c[2] = Math::Vector3d(max.x(), max.y(), min.z());
+	c[3] = Math::Vector3d(min.x(), max.y(), min.z());
+	c[4] = Math::Vector3d(min.x(), min.y(), max.z());
+	c[5] = Math::Vector3d(max.x(), min.y(), max.z());
+	c[6] = Math::Vector3d(max.x(), max.y(), max.z());
+	c[7] = Math::Vector3d(min.x(), max.y(), max.z());
+
+	_triangleShader->use();
+	_triangleShader->setUniform("mvpMatrix", _mvpMatrix);
+	useColor(r, g, b);
+
+	// disable depth so we can see the box through walls
+	glDisable(GL_DEPTH_TEST);
+	glDisable(GL_CULL_FACE);
+	glLineWidth(2.0f);
+
+	// build lines (12 lines * 2 vertices = 24 vertices)
+	int idx = 0;
+
+	auto pushLine = [&](int i, int j) {
+		copyToVertexArray(idx++, c[i]);
+		copyToVertexArray(idx++, c[j]);
+	};
+
+	// bottom
+	pushLine(0, 1);
+	pushLine(1, 2);
+	pushLine(2, 3);
+	pushLine(3, 0);
+	// top
+	pushLine(4, 5);
+	pushLine(5, 6);
+	pushLine(6, 7);
+	pushLine(7, 4);
+	// sides
+	pushLine(0, 4);
+	pushLine(1, 5);
+	pushLine(2, 6);
+	pushLine(3, 7);
+
+	glBindBuffer(GL_ARRAY_BUFFER, _triangleVBO);
+	glBufferData(GL_ARRAY_BUFFER, idx * 3 * sizeof(float), _verts, GL_DYNAMIC_DRAW);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), nullptr);
+	glDrawArrays(GL_LINES, 0, idx);
+
+	// restore state
+	glLineWidth(1.0f);
+	glEnable(GL_DEPTH_TEST);
 }
 
 void OpenGLShaderRenderer::renderCrossair(const Common::Point &crossairPosition) {
@@ -421,7 +542,7 @@ void OpenGLShaderRenderer::renderCrossair(const Common::Point &crossairPosition)
 
 	useColor(255, 255, 255);
 
-	glLineWidth(MAX(2, g_system->getWidth() / 192)); // It will not work in every OpenGL implementation since the
+	glLineWidth(MAX(2, g_system->getWidth() / 640)); // It will not work in every OpenGL implementation since the
 	                                                 // spec doesn't require support for line widths other than 1
 
 	copyToVertexArray(0, Math::Vector3d(remap(crossairPosition.x - 3, _screenW), remap(_screenH - crossairPosition.y, _screenH), 0));
@@ -454,6 +575,13 @@ void OpenGLShaderRenderer::renderFace(const Common::Array<Math::Vector3d> &verti
 	_triangleShader->use();
 	_triangleShader->setUniform("mvpMatrix", _mvpMatrix);
 
+#if !USE_FORCED_GLES2
+	if (_debugRenderWireframe) {
+		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+		useColor(0, 255, 0);
+	}
+#endif
+
 	if (vertices.size() == 2) {
 		const Math::Vector3d &v1 = vertices[1];
 		if (v0 == v1)
@@ -462,7 +590,7 @@ void OpenGLShaderRenderer::renderFace(const Common::Array<Math::Vector3d> &verti
 		copyToVertexArray(0, v0);
 		copyToVertexArray(1, v1);
 
-		glLineWidth(MAX(1, g_system->getWidth() / 192));
+		glLineWidth(MAX(1, g_system->getWidth() / 640));
 
 		glBindBuffer(GL_ARRAY_BUFFER, _triangleVBO);
 		glBufferData(GL_ARRAY_BUFFER, 2 * 3 * sizeof(float), _verts, GL_DYNAMIC_DRAW);
@@ -470,6 +598,10 @@ void OpenGLShaderRenderer::renderFace(const Common::Array<Math::Vector3d> &verti
 		glDrawArrays(GL_LINES, 0, 2);
 
 		glLineWidth(1);
+#if !USE_FORCED_GLES2
+		if (_debugRenderWireframe)
+			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+#endif
 		return;
 	}
 
@@ -487,6 +619,34 @@ void OpenGLShaderRenderer::renderFace(const Common::Array<Math::Vector3d> &verti
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), nullptr);
 
 	glDrawArrays(GL_TRIANGLES, 0, vi + 3);
+
+	if (_debugRenderNormals && vertices.size() >= 3) {
+		// calculate center
+		Math::Vector3d center(0, 0, 0);
+		for (auto &v : vertices) center += v;
+		center /= (float)vertices.size();
+
+		// calculate normal vector
+		Math::Vector3d v1 = vertices[1] - vertices[0];
+		Math::Vector3d v2 = vertices[2] - vertices[0];
+		Math::Vector3d normal = Math::Vector3d::crossProduct(v1, v2);
+		normal.normalize();
+		Math::Vector3d tip = center + (normal * 50.0f);
+
+		// upload normal line
+		copyToVertexArray(0, center);
+		copyToVertexArray(1, tip);
+
+		useColor(255, 0, 255); // pink
+
+		glBufferData(GL_ARRAY_BUFFER, 2 * 3 * sizeof(float), _verts, GL_DYNAMIC_DRAW);
+		glDrawArrays(GL_LINES, 0, 2);
+	}
+
+#if !USE_FORCED_GLES2
+	if (_debugRenderWireframe)
+		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+#endif
 }
 
 void OpenGLShaderRenderer::depthTesting(bool enabled) {

@@ -43,12 +43,11 @@ Interface::Interface() : M4::Interface() {
 
 bool Interface::init(int arrow, int wait, int look, int grab, int use) {
 	M4::Interface::init(arrow, wait, look, grab, use);
-
 	_sprite = AddWSAssetCELS("INTERFACE STUFF", 22, _G(master_palette));
 	gr_pal_interface(_G(master_palette));
 
 	if (_sprite != 22)
-		error_show(FL, 'SLF!');
+		error_show(FL, "interface stuff");
 
 	mouse_set_sprite(arrow);
 
@@ -93,7 +92,7 @@ void Interface::setup() {
 	_interfaceBox->add(_btnManipulate);
 	_interfaceBox->add(_btnHandle);
 
-	_btnBackpack = new BackpackClass(RectClass(135, 10, 176, 50), "backpack", 6, 9, 9, 10, INTERFACE_SPRITES);
+	_btnBackpack = new BackpackClass(RectClass(135, 10, 176, 50), "backpack", 6, 10, 10, 9, INTERFACE_SPRITES);
 	_btnBinky = new ButtonClass(RectClass(582, 10, 629, 50), "binky", 8, 11, 13, 12, INTERFACE_SPRITES);
 	_interfaceBox->add(_btnBackpack);
 	_interfaceBox->add(_btnBinky);
@@ -247,6 +246,7 @@ void Interface::trackIcons() {
 		// Backpack
 		mouse_set_sprite(_arrow);
 		_iconSelected = false;
+		_btnBackpack->swap_sprites();
 		_inventory->toggleHidden();
 		_inventory->refresh_scrollbars();
 		break;

@@ -27,7 +27,7 @@ namespace LastExpress {
 GraphicsManager::GraphicsManager(LastExpressEngine *engine) {
 	_engine = engine;
 
-	const Graphics::PixelFormat format(2, 5, 5, 5, 0, 10, 5, 0, 0);
+	const Graphics::PixelFormat format(2, 5, 6, 5, 0, 11, 5, 0, 0);
 	_screenSurface.create(640, 480, format);
 	_mainSurfaceIsInit = true;
 
@@ -41,7 +41,9 @@ GraphicsManager::GraphicsManager(LastExpressEngine *engine) {
 	_renderBox2.height = 480;
 }
 
-GraphicsManager::~GraphicsManager() {}
+GraphicsManager::~GraphicsManager() {
+	_screenSurface.free();
+}
 
 bool GraphicsManager::acquireSurface() {
 	// This function is technically useless, but I'm keeping it
@@ -146,7 +148,7 @@ void GraphicsManager::goStepBG(int sceneIndex) {
 		_engine->getOtisManager()->updateAll();
 	}
 
-	_engine->getSpriteManager()->drawCycleSimple(_backgroundBuffer);
+	_engine->getSpriteManager()->drawCycleSimple(_frontBuffer);
 	stepDissolve(chosenTbm);
 	_engine->getLogicManager()->doPostFunction();
 }
@@ -158,7 +160,7 @@ void GraphicsManager::stepDissolve(TBM *tbm) {
 		int32 curFrameCount = _engine->getSoundFrameCounter();
 		_engine->getSoundManager()->soundThread();
 
-		dissolve(pos + sizeof(PixMap) * (i & 1), tbm->width, tbm->height, _backgroundBuffer);
+		dissolve(pos + sizeof(PixMap) * (i & 1), tbm->width, tbm->height, _frontBuffer);
 
 		burstBox(tbm->x, tbm->y, tbm->width, tbm->height);
 		int32 frameTimeDiff = _engine->getSoundFrameCounter() - curFrameCount;
@@ -183,7 +185,7 @@ void GraphicsManager::stepDissolve(TBM *tbm) {
 	}
 
 	if (acquireSurface()) {
-		copy(_backgroundBuffer, (PixMap *)_screenSurface.getPixels(), tbm->x, tbm->y, tbm->width, tbm->height);
+		copy(_frontBuffer, (PixMap *)_screenSurface.getPixels(), tbm->x, tbm->y, tbm->width, tbm->height);
 		unlockSurface();
 	}
 
@@ -276,7 +278,7 @@ void GraphicsManager::bitBltSprite255(Sprite *sprite, PixMap *pixels) {
 	destEndPtr = pixels + (640 * 480);
 
 	while (destPtr < destEndPtr) {
-		cmd = *(uint16 *)compressedData;
+		cmd = READ_LE_UINT16((uint16 *)compressedData);
 
 		// Direct color lookup
 		if ((cmd & 0xFF) < 0x80) {
@@ -1703,19 +1705,19 @@ void GraphicsManager::dissolve(int32 location, int32 width, int32 height, PixMap
 void GraphicsManager::doErase(byte *data) {
 	byte *screenSurface = (byte *)_screenSurface.getPixels();
 	byte *endOfSurface = screenSurface + (640 * 480 * sizeof(PixMap));
-	byte *previousScreenBuffer = (byte *)_screenBuffer;
+	byte *previousScreenBuffer = (byte *)_backBuffer;
 
 	uint16 *eraseMask = (uint16 *)data;
 
 	// Apply the old screen buffer on the erase mask
 	do {
-		if (*eraseMask) {
-			memcpy(screenSurface, previousScreenBuffer, 4 * *eraseMask);
-			previousScreenBuffer += 4 * *eraseMask;
-			screenSurface += 4 * *eraseMask;
+		if (READ_LE_UINT16(eraseMask)) {
+			memcpy(screenSurface, previousScreenBuffer, 4 * READ_LE_UINT16(eraseMask));
+			previousScreenBuffer += 4 * READ_LE_UINT16(eraseMask);
+			screenSurface += 4 * READ_LE_UINT16(eraseMask);
 		}
 	
-		int skipSize = *(eraseMask + 1) << 2;
+		int skipSize = READ_LE_UINT16(eraseMask + 1) << 2;
 		screenSurface += skipSize;
 		previousScreenBuffer += skipSize;
 		eraseMask += 2;
@@ -2010,7 +2012,11 @@ bool GraphicsManager::decomp16(byte *data, int32 size) {
 
 	if (_bgDecompFlags == 0) {
 		_bgDecompFlags = 0x1000;
-		_bgDecompOutBufferTemp = (_bgDecompOutBuffer + 1);
+#ifdef SCUMM_LITTLE_ENDIAN
+		_bgDecompOutBufferTemp = (_bgDecompOutBuffer + 1); // High byte for red
+#else
+		_bgDecompOutBufferTemp = _bgDecompOutBuffer;       // Low byte for red on BE
+#endif
 		_bgDecompTargetRect->x = READ_LE_UINT32(data);
 		_bgDecompTargetRect->y = READ_LE_UINT32(data + 1 * sizeof(uint32));
 		_bgDecompTargetRect->width = READ_LE_UINT32(data + 2 * sizeof(uint32));
@@ -2048,9 +2054,15 @@ bool GraphicsManager::decomp16(byte *data, int32 size) {
 
 		if ((_bgDecompFlags & 0x100) != 0) {
 			_bgDecompFlags &= ~0x100;
-			_bgDecompFlags++; // Go to the next channel
 
 			_bgDecompOutBufferTemp = _bgDecompOutBuffer;
+
+#ifndef SCUMM_LITTLE_ENDIAN
+			if ((_bgDecompFlags & 3) == 0)
+				_bgDecompOutBufferTemp++;
+#endif
+
+			_bgDecompFlags++; // Go to the next channel
 
 			if ((_bgDecompFlags & 3) == 3)
 				return false;

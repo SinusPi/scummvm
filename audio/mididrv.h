@@ -166,6 +166,8 @@ public:
 
 	static const uint8 MT32_PITCH_BEND_SENSITIVITY_DEFAULT = 0x0C;
 	static const uint8 GM_PITCH_BEND_SENSITIVITY_DEFAULT = 0x02;
+	// Default reverb value on the Roland SC-55
+	static const uint8 GM_REVERB_DEFAULT = 0x28;
 
 	static const uint8 GS_RHYTHM_FIRST_NOTE = 0x1B;
 	static const uint8 GS_RHYTHM_LAST_NOTE = 0x58;
@@ -232,14 +234,14 @@ public:
 	virtual uint16 sysExNoDelay(const byte *msg, uint16 length) { sysEx(msg, length); return 0; }
 
 	// TODO: Document this.
-	virtual void metaEvent(byte type, byte *data, uint16 length) { }
+	virtual void metaEvent(byte type, const byte *data, uint16 length) { }
 
 	/**
 	 * Send a meta event from a specific source. If the MIDI driver
 	 * does not support multiple sources, the source parameter is
 	 * ignored.
 	 */
-	virtual void metaEvent(int8 source, byte type, byte *data, uint16 length) { metaEvent(type, data, length); }
+	virtual void metaEvent(int8 source, byte type, const byte *data, uint16 length) { metaEvent(type, data, length); }
 
 	/**
 	 * Stops all currently active notes. Specify stopSustainedNotes if

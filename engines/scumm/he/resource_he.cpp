@@ -33,6 +33,7 @@
 #include "graphics/wincursor.h"
 
 #include "common/archive.h"
+#include "common/endian.h"
 #include "common/memstream.h"
 #include "common/system.h"
 #include "common/formats/winexe_pe.h"
@@ -175,7 +176,7 @@ bool MacResExtractor::extractResource(int id, CachedCursor *cc) {
 			error("Cannot open file %s", _fileName.toString(Common::Path::kNativeSeparator).c_str());
 	}
 
-	Common::SeekableReadStream *dataStream = _resMgr->getResource('crsr', id + 1000);
+	Common::SeekableReadStream *dataStream = _resMgr->getResource(MKTAG('c','r','s','r'), id + 1000);
 
 	if (!dataStream)
 		return false;
@@ -283,7 +284,7 @@ void ScummEngine_v99he::readMAXS(int blockSize) {
 		_numLocalScripts = _fileHandle->readUint16LE();
 		_HEHeapSize = _fileHandle->readUint16LE();
 		_numPalettes = _fileHandle->readUint16LE();
-		_numUnk = _fileHandle->readUint16LE();
+		_numWindows = _fileHandle->readUint16LE();
 		_numTalkies = _fileHandle->readUint16LE();
 		_numNewNames = 10;
 

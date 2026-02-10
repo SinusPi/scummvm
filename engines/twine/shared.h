@@ -83,6 +83,8 @@
 // Twinsun explosion
 #define GAMEFLAG_VIDEO_EXPLODE2 219
 
+#define GAMEFLAG_ESC 249
+
 // lba2 Kashes or Zlitos
 #define GAMEFLAG_MONEY 8
 // FLAG_ARDOISE
@@ -101,7 +103,7 @@ struct I16Vec3 {
 	int16 z = 0;
 };
 #include "common/pack-end.h"
-STATIC_ASSERT(sizeof(I16Vec3) == 6, "Unexpected pointTab size");
+static_assert(sizeof(I16Vec3) == 6, "Unexpected pointTab size");
 
 struct IVec2 {
 	constexpr IVec2() : x(0), y(0) {}

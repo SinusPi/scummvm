@@ -94,6 +94,10 @@ class VCR;
 
 struct Extent;
 
+enum {
+	GF_COMPRESSED = 1 << 0
+};
+
 typedef struct Item {
 	uint8 mnum;
 	uint16 closeUp;
@@ -217,6 +221,11 @@ typedef struct Seq {
 		sprites = nullptr;
 		memset(gap, 0, sizeof(gap));
 		rawSeqData = nullptr;
+	}
+
+	~Seq() {
+		delete[] sprites;
+		sprites = nullptr;
 	}
 } Seq;
 
@@ -362,13 +371,11 @@ typedef struct Link {
 
 	~Link() {
 		if (lineList) {
-			debug("DELETE LINK LINE");
 			delete lineList;
 			lineList = nullptr;
 		}
 
 		if (next) {
-			debug("DELETE LINK NEXT");
 			delete next;
 			next = nullptr;
 		}
@@ -471,8 +478,10 @@ typedef struct FontData {
 		memset(charMap, 0, sizeof(charMap));
 		memset(charKerning, 0, sizeof(charKerning));
 
-		delete fontData;
-		fontData = nullptr;
+		if (fontData) {
+			free(fontData);
+			fontData = nullptr;
+		}
 	}
 } FontData;
 
@@ -505,7 +514,9 @@ typedef struct NisEvents {
 	}
 } NisEvents;
 
-#define PAGE_SIZE  0x800
+#define MEM_PAGE_SIZE  0x800
+
+#define DEMO_TIMEOUT 2700
 
 typedef uint16 PixMap;
 
@@ -549,6 +560,7 @@ public:
 
 	bool isDemo() const;
 	bool isGoldEdition() const;
+	bool isCompressed() const;
 
 	Common::String getTargetName() const;
 
@@ -610,6 +622,7 @@ public:
 
 	bool _pendingExitEvent = false;
 	bool _exitFromMenuButton = false;
+	int32 _lastForcedScreenUpdateTicks = 0; // Not in the original
 
 	Seq *_doorSeqs[8] = { nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr };
 	Seq *_clockHandsSeqs[2] = { nullptr, nullptr };
@@ -636,7 +649,7 @@ public:
 	void startUp();
 	void shutDown();
 
-	void waitForTimer(int frames);
+	void waitForTimer(int millis);
 	void initGameData();
 	void startNewGame();
 	void engineEventHandler(Event *event);

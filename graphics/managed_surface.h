@@ -90,14 +90,15 @@ protected:
 	 */
 	void simpleBlitFromInner(const Surface &src, const Common::Rect &srcRect,
 		const Common::Point &destPos, const Palette *srcPalette,
-		bool transparentColorSet, uint transparentColor);
+		bool transparentColorSet, uint transparentColor,
+		byte flip, bool alpha, byte aMod);
 
 	/**
 	 * Inner method for blitting with a transparent mask.
 	 */
 	void maskBlitFromInner(const Surface &src, const Surface &mask,
 		const Common::Rect &srcRect, const Common::Point &destPos,
-		const Palette *srcPalette);
+		const Palette *srcPalette, byte flip, bool alpha, byte aMod);
 
 	/**
 	 * Inner method for blitting.
@@ -111,12 +112,22 @@ protected:
 	void transBlitFromInner(const Surface &src, const Common::Rect &srcRect,
 		const Common::Rect &destRect, uint32 transColor, bool flipped, uint32 srcAlpha,
 		const Palette *srcPalette, const Palette *dstPalette);
+
+	/**
+	 * Inner method for copying another surface into this one at a given destination position with alpha blending.
+	 */
+	void blendBlitFromInner(const Surface &src, const Common::Rect &srcRect,
+		const Common::Rect &destRect, const int flipping, const uint colorMod,
+		const TSpriteBlendMode blend, const AlphaType alphaType);
+
+	uint32 convertTransparentColor(const ManagedSurface &surf, const PixelFormat &dstFmt) const;
+
 public:
 	/**
 	 * Clip the given source bounds so the passed destBounds will be entirely on-screen.
 	 */
-	bool clip(Common::Rect& srcBounds, Common::Rect& destBounds) const {
-		return _innerSurface.clip(srcBounds, destBounds);
+	bool clip(Common::Rect& srcBounds, Common::Rect& destBounds, uint src_w = 0, uint src_h = 0, byte flip = FLIP_NONE) const {
+		return _innerSurface.clip(srcBounds, destBounds, src_w, src_h, flip);
 	}
 
 public:
@@ -321,66 +332,84 @@ public:
 	/**
 	 * Copy another surface into this one.
 	 */
-	void simpleBlitFrom(const Surface &src, const Palette *srcPalette = nullptr);
+	void simpleBlitFrom(const Surface &src,
+		byte flip = FLIP_NONE, bool alpha = false, byte aMod = 0xff,
+		const Palette *srcPalette = nullptr);
 
 	/**
 	 * Copy another surface into this one at a given destination position.
 	 */
-	void simpleBlitFrom(const Surface &src, const Common::Point &destPos, const Palette *srcPalette = nullptr);
+	void simpleBlitFrom(const Surface &src, const Common::Point &destPos,
+		byte flip = FLIP_NONE, bool alpha = false, byte aMod = 0xff,
+		const Palette *srcPalette = nullptr);
 
 	/**
 	 * Copy another surface into this one at a given destination position.
 	 */
 	void simpleBlitFrom(const Surface &src, const Common::Rect &srcRect,
-		const Common::Point &destPos, const Palette *srcPalette = nullptr);
+		const Common::Point &destPos,
+		byte flip = FLIP_NONE, bool alpha = false, byte aMod = 0xff,
+		const Palette *srcPalette = nullptr);
 
 	/**
 	 * Copy another surface into this one.
 	 */
-	void simpleBlitFrom(const ManagedSurface &src);
+	void simpleBlitFrom(const ManagedSurface &src,
+		byte flip = FLIP_NONE, bool alpha = false, byte aMod = 0xff);
 
 	/**
 	 * Copy another surface into this one at a given destination position.
 	 */
-	void simpleBlitFrom(const ManagedSurface &src, const Common::Point &destPos);
+	void simpleBlitFrom(const ManagedSurface &src, const Common::Point &destPos,
+		byte flip = FLIP_NONE, bool alpha = false, byte aMod = 0xff);
 
 	/**
 	 * Copy another surface into this one at a given destination position.
 	 */
 	void simpleBlitFrom(const ManagedSurface &src, const Common::Rect &srcRect,
-		const Common::Point &destPos);
+		const Common::Point &destPos,
+		byte flip = FLIP_NONE, bool alpha = false, byte aMod = 0xff);
 
 	/**
 	 * Copy another surface into this one using a transparency mask.
 	 */
-	void maskBlitFrom(const Surface &src, const Surface &mask, const Palette *srcPalette = nullptr);
+	void maskBlitFrom(const Surface &src, const Surface &mask,
+		byte flip = FLIP_NONE, bool alpha = false, byte aMod = 0xff,
+		const Palette *srcPalette = nullptr);
 
 	/**
 	 * Copy another surface into this one at a given destination position using a transparency mask.
 	 */
-	void maskBlitFrom(const Surface &src, const Surface &mask, const Common::Point &destPos, const Palette *srcPalette = nullptr);
+	void maskBlitFrom(const Surface &src, const Surface &mask, const Common::Point &destPos,
+		byte flip = FLIP_NONE, bool alpha = false, byte aMod = 0xff,
+		const Palette *srcPalette = nullptr);
 
 	/**
 	 * Copy another surface into this one at a given destination position using a transparency mask.
 	 */
 	void maskBlitFrom(const Surface &src, const Surface &mask, const Common::Rect &srcRect,
-		const Common::Point &destPos, const Palette *srcPalette = nullptr);
+		const Common::Point &destPos,
+		byte flip = FLIP_NONE, bool alpha = false, byte aMod = 0xff,
+		const Palette *srcPalette = nullptr);
 
 	/**
 	 * Copy another surface into this one using a transparency mask.
 	 */
-	void maskBlitFrom(const ManagedSurface &src, const ManagedSurface &mask);
+	void maskBlitFrom(const ManagedSurface &src, const ManagedSurface &mask,
+		byte flip = FLIP_NONE, bool alpha = false, byte aMod = 0xff);
 
 	/**
 	 * Copy another surface into this one at a given destination position using a transparency mask.
 	 */
-	void maskBlitFrom(const ManagedSurface &src, const ManagedSurface &mask, const Common::Point &destPos);
+	void maskBlitFrom(const ManagedSurface &src, const ManagedSurface &mask, const Common::Point &destPos,
+		byte flip = FLIP_NONE, bool alpha = false, byte aMod = 0xff);
 
 	/**
 	 * Copy another surface into this one at a given destination position using a transparency mask.
 	 */
 	void maskBlitFrom(const ManagedSurface &src, const ManagedSurface &mask,
-		const Common::Rect &srcRect, const Common::Point &destPos);
+		const Common::Rect &srcRect, const Common::Point &destPos,
+		byte flip = FLIP_NONE, bool alpha = false, byte aMod = 0xff);
 
 	/**
 	 * Copy another surface into this one.
@@ -561,6 +590,174 @@ public:
 	}
 
 	/**
+	 * Copy another surface into this one, using alpha blending.
+	 *
+	 * @param src			Source surface.
+	 * @param transColor	Transparency color to ignore copying of.
+	 * @param flipped		Whether to horizontally flip the image.
+	 * @param srcAlpha		Optional additional transparency applied to @p src.
+	 * @param srcPalette	Optional palette if the @p src surface uses a CLUT8 pixel format.
+	 * @param flipping		Flipping flags to use (use Graphics::FLIP_FLAGS)
+	 * @param colorMod		What color to multiply by (0xffffffff does nothing)
+	 * @param blend 		The blending mode to use.
+	 * @param alphaType	what alpha mode to use. FULL is default
+	 */
+	void blendBlitFrom(const Surface &src,
+		const int flipping = FLIP_NONE,
+		const uint colorMod = MS_ARGB(255, 255, 255, 255),
+		const TSpriteBlendMode blend = BLEND_NORMAL,
+		const AlphaType alphaType = ALPHA_FULL);
+
+	/**
+	 * Copy another surface into this one, using alpha blending.
+	 *
+	 * @param src			Source surface.
+	 * @param destPos		Destination position to draw the surface.
+	 * @param transColor	Transparency color to ignore copying of.
+	 * @param flipped		Whether to horizontally flip the image.
+	 * @param srcAlpha		Optional additional transparency applied to @p src.
+	 * @param srcPalette	Optional palette if the @p src surface uses a CLUT8 pixel format.
+	 * @param flipping		Flipping flags to use (use Graphics::FLIP_FLAGS)
+	 * @param colorMod		What color to multiply by (0xffffffff does nothing)
+	 * @param blend 		The blending mode to use.
+	 * @param alphaType	what alpha mode to use. FULL is default
+	 */
+	void blendBlitFrom(const Surface &src, const Common::Point &destPos,
+		const int flipping = FLIP_NONE,
+		const uint colorMod = MS_ARGB(255, 255, 255, 255),
+		const TSpriteBlendMode blend = BLEND_NORMAL,
+		const AlphaType alphaType = ALPHA_FULL);
+
+	/**
+	 * Copy another surface into this one, using alpha blending.
+	 *
+	 * @param src			Source surface.
+	 * @param srcRect		Subsection of the source surface to draw.
+	 * @param destPos		Destination position to draw the surface.
+	 * @param transColor	Transparency color to ignore copying of.
+	 * @param flipped		Whether to horizontally flip the image.
+	 * @param srcAlpha		Optional additional transparency applied to @p src.
+	 * @param srcPalette	Optional palette if the @p src surface uses a CLUT8 pixel format.
+	 * @param flipping		Flipping flags to use (use Graphics::FLIP_FLAGS)
+	 * @param colorMod		What color to multiply by (0xffffffff does nothing)
+	 * @param blend 		The blending mode to use.
+	 * @param alphaType	what alpha mode to use. FULL is default
+	 */
+	void blendBlitFrom(const Surface &src, const Common::Rect &srcRect,
+		const Common::Point &destPos,
+		const int flipping = FLIP_NONE,
+		const uint colorMod = MS_ARGB(255, 255, 255, 255),
+		const TSpriteBlendMode blend = BLEND_NORMAL,
+		const AlphaType alphaType = ALPHA_FULL);
+
+	/**
+	 * Copy another surface into this one, using alpha blending.
+	 *
+	 * @param src			Source surface.
+	 * @param srcRect		Subsection of the source surface to draw.
+	 * @param destRect		Destination area to draw the surface in. This can be sized differently
+	 *						then @p srcRect, allowing for arbitrary scaling of the image.
+	 * @param transColor	Transparency color to ignore copying of.
+	 * @param flipped		Whether to horizontally flip the image.
+	 * @param srcAlpha		Optional additional transparency applied to @p src.
+	 * @param srcPalette	Optional palette if the @p src surface uses a CLUT8 pixel format.
+	 * @param flipping		Flipping flags to use (use Graphics::FLIP_FLAGS)
+	 * @param colorMod		What color to multiply by (0xffffffff does nothing)
+	 * @param blend 		The blending mode to use.
+	 * @param alphaType	what alpha mode to use. FULL is default
+	 */
+	void blendBlitFrom(const Surface &src, const Common::Rect &srcRect,
+		const Common::Rect &destRect,
+		const int flipping = FLIP_NONE,
+		const uint colorMod = MS_ARGB(255, 255, 255, 255),
+		const TSpriteBlendMode blend = BLEND_NORMAL,
+		const AlphaType alphaType = ALPHA_FULL);
+
+	/**
+	 * Copy another surface into this one, using alpha blending.
+	 *
+	 * @param src			Source surface.
+	 * @param transColor	Transparency color to ignore copying of.
+	 * @param flipped		Whether to horizontally flip the image.
+	 * @param srcAlpha		Optional additional transparency applied to @p src.
+	 * @param srcPalette	Optional palette if the @p src surface uses a CLUT8 pixel format.
+	 * @param flipping		Flipping flags to use (use Graphics::FLIP_FLAGS)
+	 * @param colorMod		What color to multiply by (0xffffffff does nothing)
+	 * @param blend 		The blending mode to use.
+	 * @param alphaType	what alpha mode to use. FULL is default
+	 */
+	void blendBlitFrom(const ManagedSurface &src,
+		const int flipping = FLIP_NONE,
+		const uint colorMod = MS_ARGB(255, 255, 255, 255),
+		const TSpriteBlendMode blend = BLEND_NORMAL,
+		const AlphaType alphaType = ALPHA_FULL);
+
+	/**
+	 * Copy another surface into this one, using alpha blending.
+	 *
+	 * @param src			Source surface.
+	 * @param destPos		Destination position to draw the surface.
+	 * @param transColor	Transparency color to ignore copying of.
+	 * @param flipped		Whether to horizontally flip the image.
+	 * @param srcAlpha		Optional additional transparency applied to @p src.
+	 * @param srcPalette	Optional palette if the @p src surface uses a CLUT8 pixel format.
+	 * @param flipping		Flipping flags to use (use Graphics::FLIP_FLAGS)
+	 * @param colorMod		What color to multiply by (0xffffffff does nothing)
+	 * @param blend 		The blending mode to use.
+	 * @param alphaType	what alpha mode to use. FULL is default
+	 */
+	void blendBlitFrom(const ManagedSurface &src, const Common::Point &destPos,
+		const int flipping = FLIP_NONE,
+		const uint colorMod = MS_ARGB(255, 255, 255, 255),
+		const TSpriteBlendMode blend = BLEND_NORMAL,
+		const AlphaType alphaType = ALPHA_FULL);
+
+	/**
+	 * Copy another surface into this one, using alpha blending.
+	 *
+	 * @param src			Source surface.
+	 * @param srcRect		Subsection of the source surface to draw.
+	 * @param destPos		Destination position to draw the surface.
+	 * @param transColor	Transparency color to ignore copying of.
+	 * @param flipped		Whether to horizontally flip the image.
+	 * @param srcAlpha		Optional additional transparency applied to @p src.
+	 * @param srcPalette	Optional palette if the @p src surface uses a CLUT8 pixel format.
+	 * @param flipping		Flipping flags to use (use Graphics::FLIP_FLAGS)
+	 * @param colorMod		What color to multiply by (0xffffffff does nothing)
+	 * @param blend 		The blending mode to use.
+	 * @param alphaType	what alpha mode to use. FULL is default
+	 */
+	void blendBlitFrom(const ManagedSurface &src, const Common::Rect &srcRect,
+		const Common::Point &destPos,
+		const int flipping = FLIP_NONE,
+		const uint colorMod = MS_ARGB(255, 255, 255, 255),
+		const TSpriteBlendMode blend = BLEND_NORMAL,
+		const AlphaType alphaType = ALPHA_FULL);
+
+	/**
+	 * Copy another surface into this one, using alpha blending.
+	 *
+	 * @param src			Source surface.
+	 * @param srcRect		Subsection of the source surface to draw.
+	 * @param destRect		Destination area to draw the surface in. This can be sized differently
+	 *						then @p srcRect, allowing for arbitrary scaling of the image.
+	 * @param transColor	Transparency color to ignore copying of.
+	 * @param flipped		Whether to horizontally flip the image.
+	 * @param srcAlpha		Optional additional transparency applied to @p src.
+	 * @param srcPalette	Optional palette if the @p src surface uses a CLUT8 pixel format.
+	 * @param flipping		Flipping flags to use (use Graphics::FLIP_FLAGS)
+	 * @param colorMod		What color to multiply by (0xffffffff does nothing)
+	 * @param blend 		The blending mode to use.
+	 * @param alphaType	what alpha mode to use. FULL is default
+	 */
+	void blendBlitFrom(const ManagedSurface &src, const Common::Rect &srcRect,
+		const Common::Rect &destRect,
+		const int flipping = FLIP_NONE,
+		const uint colorMod = MS_ARGB(255, 255, 255, 255),
+		const TSpriteBlendMode blend = BLEND_NORMAL,
+		const AlphaType alphaType = ALPHA_FULL);
+
+	/**
 	 * @brief Renders this surface onto target
 	 * @param target renders this surface onto this one
 	 * @param src source surface
@@ -590,6 +787,15 @@ public:
 							 const int width = -1, const int height = -1,
 							 const TSpriteBlendMode blend = BLEND_NORMAL,
 							 const AlphaType alphaType = ALPHA_FULL);
+
+	/**
+	 * Fill a rect with a given color and blending mode.
+	 *
+	 * @param r      The rectangle to fill.
+	 * @param color  The color to fill the rect with.
+	 * @param blend 		The blending mode to use.
+	 */
+	void blendFillRect(const Common::Rect r, const uint colorMod, const TSpriteBlendMode blend);
 
 	/**
 	 * Clear the entire surface.
@@ -775,6 +981,13 @@ public:
 	}
 
 	/**
+	 * Return a read-only sub-area of the screen.
+	 */
+	const Surface getSubArea(const Common::Rect &area) const {
+		return _innerSurface.getSubArea(area);
+	}
+
+	/**
 	 * Convert the data to another pixel format.
 	 *
 	 * This works in-place. This means it does not create an additional buffer
@@ -783,9 +996,7 @@ public:
 	 *
 	 * @param dstFormat  The desired format.
 	 */
-	void convertToInPlace(const PixelFormat &dstFormat) {
-		_innerSurface.convertToInPlace(dstFormat);
-	}
+	void convertToInPlace(const PixelFormat &dstFormat);
 
 	/**
 	 * Convert the data to another pixel format.
@@ -843,6 +1054,9 @@ public:
 	 * Grab the palette using RGB tuples.
 	 */
 	void grabPalette(byte *colors, uint start, uint num) const;
+	const Graphics::Palette *grabPalette() const {
+		return _palette;
+	}
 
 	/**
 	 * Set the palette using RGB tuples.

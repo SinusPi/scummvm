@@ -32,10 +32,10 @@ void DarkEngine::initZX() {
 	_maxEnergy = 63;
 	_maxShield = 63;
 
-	_soundIndexShoot = 5;
+	_soundIndexShoot = 1;
 	_soundIndexCollide = -1; // Scripted
-	_soundIndexFall = 3;
-	_soundIndexClimb = 4;
+	_soundIndexStepDown = 3;
+	_soundIndexStepUp = 4;
 	_soundIndexMenu = 25;
 	_soundIndexStart = 11;
 	_soundIndexAreaChange = 0x1c;
@@ -55,14 +55,14 @@ void DarkEngine::loadAssetsZXFullGame() {
 
 	file.open("darkside.zx.title");
 	if (file.isOpen()) {
-		_title = loadAndCenterScrImage(&file);
+		_title = loadAndConvertScrImage(&file);
 	} else
 		error("Unable to find darkside.zx.title");
 
 	file.close();
 	file.open("darkside.zx.border");
 	if (file.isOpen()) {
-		_border = loadAndCenterScrImage(&file);
+		_border = loadAndConvertScrImage(&file);
 	} else
 		error("Unable to find driller.zx.border");
 	file.close();
@@ -92,14 +92,14 @@ void DarkEngine::loadAssetsZXDemo() {
 
 	file.open("darkside.zx.title");
 	if (file.isOpen()) {
-		_title = loadAndCenterScrImage(&file);
+		_title = loadAndConvertScrImage(&file);
 	} else
 		error("Unable to find darkside.zx.title");
 
 	file.close();
 	file.open("darkside.zx.border");
 	if (file.isOpen()) {
-		_border = loadAndCenterScrImage(&file);
+		_border = loadAndConvertScrImage(&file);
 	} else
 		error("Unable to find driller.zx.border");
 	file.close();
@@ -140,6 +140,9 @@ void DarkEngine::drawZXUI(Graphics::Surface *surface) {
 	uint32 back = _gfx->_texturePixelFormat.ARGBToColor(0xFF, r, g, b);
 	uint32 transparent = _gfx->_texturePixelFormat.ARGBToColor(0x00, 0x00, 0x00, 0x00);
 
+	// Drawing the horizontal compass should be done first, so that the background is properly filled
+	drawHorizontalCompass(192, 141, _yaw, front, back, surface);
+
 	int score = _gameStateVars[k8bitVariableScore];
 	int ecds = _gameStateVars[kVariableActiveECDs];
 	surface->fillRect(Common::Rect(193, 140, 223, 163), back);
@@ -147,11 +150,11 @@ void DarkEngine::drawZXUI(Graphics::Surface *surface) {
 	drawStringInSurface(Common::String::format("%04d", int(2 * _position.z())), 191, 149, front, transparent, surface);
 	drawStringInSurface(Common::String::format("%04d", int(2 * _position.y())), 191, 157, front, transparent, surface);
 
-	surface->fillRect(Common::Rect(80, 165, 95, 171), back);
-	surface->fillRect(Common::Rect(80, 172, 102, 178), back);
+	surface->fillRect(Common::Rect(80, 165, 95, 172), back);
+	surface->fillRect(Common::Rect(80, 172, 102, 179), back);
 	drawStringInSurface(Common::String::format("%02d", int(_angleRotations[_angleRotationIndex])), 79, 165, front, transparent, surface);
 	drawStringInSurface(Common::String::format("%3d", _playerSteps[_playerStepIndex]), 79, 173, front, transparent, surface);
-	surface->fillRect(Common::Rect(96, 12, 151, 18), back);
+	surface->fillRect(Common::Rect(96, 12, 151, 19), back);
 	drawStringInSurface(Common::String::format("%07d", score), 95, 13, front, transparent, surface);
 	drawStringInSurface(Common::String::format("%3d%%", ecds), 191, 13, front, back, surface);
 
@@ -173,24 +176,31 @@ void DarkEngine::drawZXUI(Graphics::Surface *surface) {
 
 	if (shield >= 0) {
 		Common::Rect shieldBar;
-		shieldBar = Common::Rect(80, 140, 143 - (_maxShield - shield), 148);
+		shieldBar = Common::Rect(80, 141, 143 - (_maxShield - shield), 148);
 		surface->fillRect(shieldBar, back);
 
-		shieldBar = Common::Rect(80, 141, 143 - (_maxShield - shield), 147);
+		shieldBar = Common::Rect(80, 142, 143 - (_maxShield - shield), 147);
 		surface->fillRect(shieldBar, front);
+
+		shieldBar = Common::Rect(80, 144, 143 - (_maxShield - shield), 145);
+		surface->fillRect(shieldBar, back);
 	}
 
 	if (energy >= 0) {
 		Common::Rect energyBar;
-		energyBar = Common::Rect(80, 147, 143 - (_maxEnergy - energy), 155);
+		energyBar = Common::Rect(80, 148, 143 - (_maxEnergy - energy), 155);
 		surface->fillRect(energyBar, back);
 
-		energyBar = Common::Rect(80, 148, 143 - (_maxEnergy - energy), 154);
+		energyBar = Common::Rect(80, 149, 143 - (_maxEnergy - energy), 154);
 		surface->fillRect(energyBar, front);
+
+		energyBar = Common::Rect(80, 151, 143 - (_maxEnergy - energy), 152);
+		surface->fillRect(energyBar, back);
 	}
 	uint32 clockColor = _gfx->_texturePixelFormat.ARGBToColor(0xFF, 0xFF, 0x00, 0x00);
 	drawBinaryClock(surface, 273, 128, clockColor, back);
 	drawIndicator(surface, 152, 140);
+	drawVerticalCompass(surface, 47, 79, _pitch, front);
 }
 
 } // End of namespace Freescape

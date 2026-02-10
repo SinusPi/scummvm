@@ -20,8 +20,9 @@
  */
 
 #include "ultima/ultima8/gfx/palette.h"
+
+#include "common/stream.h"
 #include "ultima/ultima8/gfx/texture.h"
-#include "ultima/ultima8/misc/debugger.h"
 
 namespace Ultima {
 namespace Ultima8 {
@@ -39,7 +40,7 @@ void Palette::load(Common::ReadStream &rs) {
 
 	// convert from 0-63 to 0-255 _palette
 	for (i = 0; i < 256; i++) {
-		set(i, (raw[i * 3] * 255) / 63, (raw[i * 3 + 1] * 255) / 63, (raw[i * 3 + 2] * 255) / 63);
+		set(i, PALETTE_6BIT_TO_8BIT(raw[i * 3]), PALETTE_6BIT_TO_8BIT(raw[i * 3 + 1]), PALETTE_6BIT_TO_8BIT(raw[i * 3 + 2]));
 	}
 
 	for (i = 0; i < 256; i++)

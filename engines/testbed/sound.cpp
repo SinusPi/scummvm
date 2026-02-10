@@ -29,6 +29,7 @@
 #include "common/events.h"
 #include "common/file.h"
 
+#include "testbed/testbed.h"
 #include "testbed/sound.h"
 
 namespace Testbed {
@@ -55,9 +56,9 @@ SoundSubsystemDialog::SoundSubsystemDialog() : TestbedInteractionDialog(80, 60, 
 	_mixer = g_system->getMixer();
 
 	// the three streams to be mixed
-	Audio::PCSpeaker *s1 = new Audio::PCSpeaker();
-	Audio::PCSpeaker *s2 = new Audio::PCSpeaker();
-	Audio::PCSpeaker *s3 = new Audio::PCSpeaker();
+	Audio::PCSpeakerStream *s1 = new Audio::PCSpeakerStream();
+	Audio::PCSpeakerStream *s2 = new Audio::PCSpeakerStream();
+	Audio::PCSpeakerStream *s3 = new Audio::PCSpeakerStream();
 
 	s1->play(Audio::PCSpeaker::kWaveFormSine, 1000, -1);
 	s2->play(Audio::PCSpeaker::kWaveFormSine, 1200, -1);
@@ -125,7 +126,7 @@ TestExitStatus SoundSubsystem::playBeeps() {
 		return kTestSkipped;
 	}
 
-	Audio::PCSpeaker *speaker = new Audio::PCSpeaker();
+	Audio::PCSpeakerStream *speaker = new Audio::PCSpeakerStream();
 	Audio::Mixer *mixer = g_system->getMixer();
 	Audio::SoundHandle handle;
 	mixer->playStream(Audio::Mixer::kPlainSoundType, &handle, speaker);
@@ -236,12 +237,19 @@ TestExitStatus SoundSubsystem::modPlayback() {
 		while (mixer->isSoundHandleActive(handle)) {
 			g_system->delayMillis(10);
 			Testsuite::writeOnScreen(Common::String::format("Playing Now: %s", music[i]), pt);
-			Testsuite::writeOnScreen("Press 'S' to stop", pt2);
+			Testsuite::writeOnScreen("Click to stop.", pt2);
 
 			if (eventMan->pollEvent(event)) {
-				if (event.type == Common::EVENT_KEYDOWN && event.kbd.keycode == Common::KEYCODE_s)
+				// Quit if explicitly requested!
+				if (Engine::shouldQuit()) {
+					break;
+				}
+				if (event.type == Common::EVENT_LBUTTONDOWN || event.type == Common::EVENT_RBUTTONDOWN)
 					break;
 			}
+		}
+		if (Engine::shouldQuit()) {
+			break;
 		}
 		g_system->delayMillis(10);
 
@@ -306,11 +314,11 @@ TestExitStatus SoundSubsystem::sampleRates() {
 	TestExitStatus passed = kTestPassed;
 	Audio::Mixer *mixer = g_system->getMixer();
 
-	Audio::PCSpeaker *s1 = new Audio::PCSpeaker();
+	Audio::PCSpeakerStream *s1 = new Audio::PCSpeakerStream();
 	// Stream at half sampling rate
-	Audio::PCSpeaker *s2 = new Audio::PCSpeaker(s1->getRate() - 10000);
+	Audio::PCSpeakerStream *s2 = new Audio::PCSpeakerStream(s1->getRate() - 10000);
 	// Stream at twice sampling rate
-	Audio::PCSpeaker *s3 = new Audio::PCSpeaker(s1->getRate() + 10000);
+	Audio::PCSpeakerStream *s3 = new Audio::PCSpeakerStream(s1->getRate() + 10000);
 
 	s1->play(Audio::PCSpeaker::kWaveFormSine, 1000, -1);
 	s2->play(Audio::PCSpeaker::kWaveFormSine, 1000, -1);
@@ -354,7 +362,7 @@ SoundSubsystemTestSuite::SoundSubsystemTestSuite() {
 	// Make audio-files discoverable
 	Common::FSNode gameRoot(ConfMan.getPath("path"));
 	if (gameRoot.exists()) {
-		SearchMan.addSubDirectoryMatching(gameRoot, "audiocd-files");
+		SearchMan.addSubDirectoryMatching(gameRoot, "audiocd-files", 0, 2, false);
 		if (SearchMan.hasFile("track01.mp3") && SearchMan.hasFile("track02.mp3") && SearchMan.hasFile("track03.mp3") && SearchMan.hasFile("track04.mp3")) {
 			addTest("AudiocdOutput", &SoundSubsystem::audiocdOutput, true);
 		} else {

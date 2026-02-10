@@ -21,40 +21,28 @@
 
 #include "engines/freescape/games/driller/c64.music.h"
 
+#include "common/textconsole.h"
+
 // --- Driller Music Data (Embedded from Disassembly) ---
 namespace Freescape {
 
 // Frequency Tables (0x0D53 - 0x0E12)
-const uint8_t frq_lo[192] = {
+const uint8_t frq_lo[96] = {
 	0x0C, 0x1C, 0x2D, 0x3E, 0x51, 0x66, 0x7B, 0x91, 0xA9, 0xC3, 0xDD, 0xFA, 0x18, 0x38, 0x5A, 0x7D, // 0D53
 	0xA3, 0xCC, 0xF6, 0x23, 0x53, 0x86, 0xBB, 0xF4, 0x30, 0x70, 0xB4, 0xFB, 0x47, 0x98, 0xED, 0x47, // 0D63
 	0xA7, 0x0C, 0x77, 0xE9, 0x61, 0xE1, 0x68, 0xF7, 0x8F, 0x30, 0xDA, 0x8F, 0x4E, 0x18, 0xEF, 0xD2, // 0D73
 	0xC3, 0xC3, 0xD1, 0xEF, 0x1F, 0x60, 0xB5, 0x1E, 0x9C, 0x31, 0xDF, 0xA5, 0x87, 0x86, 0xA2, 0xDF, // 0D83
 	0x3E, 0xC1, 0x6B, 0x3C, 0x39, 0x63, 0xBE, 0x4B, 0x0F, 0x0C, 0x45, 0xBF, 0x7D, 0x83, 0xD6, 0x79, // 0D93
-	0x73, 0xC7, 0x7C, 0x97, 0x1E, 0x18, 0x8B, 0x7E, 0xFA, 0x06, 0xAC, 0xF3, 0xE6, 0x8F, 0xF8, 0x2E, // 0DA3
-	// Fill remaining based on 96 notes if needed, assuming 96 notes.
-	// Replicate last 96 bytes if table is expected to be 192
-	0x0C, 0x1C, 0x2D, 0x3E, 0x51, 0x66, 0x7B, 0x91, 0xA9, 0xC3, 0xDD, 0xFA, 0x18, 0x38, 0x5A, 0x7D,
-	0xA3, 0xCC, 0xF6, 0x23, 0x53, 0x86, 0xBB, 0xF4, 0x30, 0x70, 0xB4, 0xFB, 0x47, 0x98, 0xED, 0x47,
-	0xA7, 0x0C, 0x77, 0xE9, 0x61, 0xE1, 0x68, 0xF7, 0x8F, 0x30, 0xDA, 0x8F, 0x4E, 0x18, 0xEF, 0xD2,
-	0xC3, 0xC3, 0xD1, 0xEF, 0x1F, 0x60, 0xB5, 0x1E, 0x9C, 0x31, 0xDF, 0xA5, 0x87, 0x86, 0xA2, 0xDF,
-	0x3E, 0xC1, 0x6B, 0x3C, 0x39, 0x63, 0xBE, 0x4B, 0x0F, 0x0C, 0x45, 0xBF, 0x7D, 0x83, 0xD6, 0x79,
-	0x73, 0xC7, 0x7C, 0x97, 0x1E, 0x18, 0x8B, 0x7E, 0xFA, 0x06, 0xAC, 0xF3, 0xE6, 0x8F, 0xF8, 0x2E};
-const uint8_t frq_hi[192] = {
+	0x73, 0xC7, 0x7C, 0x97, 0x1E, 0x18, 0x8B, 0x7E, 0xFA, 0x06, 0xAC, 0xF3, 0xE6, 0x8F, 0xF8, 0x2E  // 0DA3
+};
+const uint8_t frq_hi[96] = {
 	0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x02, 0x02, 0x02, 0x02, // 0DB3
 	0x02, 0x02, 0x02, 0x03, 0x03, 0x03, 0x03, 0x03, 0x04, 0x04, 0x04, 0x04, 0x05, 0x05, 0x05, 0x06, // 0DC3
 	0x06, 0x07, 0x07, 0x07, 0x08, 0x08, 0x09, 0x09, 0x0A, 0x0B, 0x0B, 0x0C, 0x0D, 0x0E, 0x0E, 0x0F, // 0DD3
 	0x10, 0x11, 0x12, 0x13, 0x15, 0x16, 0x17, 0x19, 0x1A, 0x1C, 0x1D, 0x1F, 0x21, 0x23, 0x25, 0x27, // 0DE3
 	0x2A, 0x2C, 0x2F, 0x32, 0x35, 0x38, 0x3B, 0x3F, 0x43, 0x47, 0x4B, 0x4F, 0x54, 0x59, 0x5E, 0x64, // 0DF3
-	0x6A, 0x70, 0x77, 0x7E, 0x86, 0x8E, 0x96, 0x9F, 0xA8, 0xB3, 0xBD, 0xC8, 0xD4, 0xE1, 0xEE, 0xFD, // 0E03
-	// Fill remaining based on 96 notes if needed
-	// Replicate last 96 bytes if table is expected to be 192
-	0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x02, 0x02, 0x02, 0x02,
-	0x02, 0x02, 0x02, 0x03, 0x03, 0x03, 0x03, 0x03, 0x04, 0x04, 0x04, 0x04, 0x05, 0x05, 0x05, 0x06,
-	0x06, 0x07, 0x07, 0x07, 0x08, 0x08, 0x09, 0x09, 0x0A, 0x0B, 0x0B, 0x0C, 0x0D, 0x0E, 0x0E, 0x0F,
-	0x10, 0x11, 0x12, 0x13, 0x15, 0x16, 0x17, 0x19, 0x1A, 0x1C, 0x1D, 0x1F, 0x21, 0x23, 0x25, 0x27,
-	0x2A, 0x2C, 0x2F, 0x32, 0x35, 0x38, 0x3B, 0x3F, 0x43, 0x47, 0x4B, 0x4F, 0x54, 0x59, 0x5E, 0x64,
-	0x6A, 0x70, 0x77, 0x7E, 0x86, 0x8E, 0x96, 0x9F, 0xA8, 0xB3, 0xBD, 0xC8, 0xD4, 0xE1, 0xEE, 0xFD};
+	0x6A, 0x70, 0x77, 0x7E, 0x86, 0x8E, 0x96, 0x9F, 0xA8, 0xB3, 0xBD, 0xC8, 0xD4, 0xE1, 0xEE, 0xFD  // 0E03
+};
 
 // Instrument Data (0x0EA5 - 0x1004) - Stored as flat arrays
 // possibly_instrument_a0
@@ -111,8 +99,7 @@ const int NUM_INSTRUMENTS = sizeof(instrumentDataA0) / 8;
 
 // Arpeggio Data (0x157A - 0x157E)
 const uint8_t arpeggio_data[] = {0x00, 0x0C, 0x18};
-const uint16_t arpeggio_addr[] = {0x157C}; // Address of arpeggio_0 data (relative offset for index lookup)
-const int NUM_ARPEGGIOS = sizeof(arpeggio_addr) / sizeof(arpeggio_addr[0]);
+// Only one arpeggio table is defined (3 entries: +0, +12, +24 semitones)
 
 // Music Data Pointers and Structures
 // Need to load the actual PRG file into a buffer (_musicData)
@@ -181,9 +168,8 @@ const int NUM_PATTERNS = sizeof(pattern_addresses) / sizeof(pattern_addresses[0]
 // Tune Data (0x1054, 0x15D5 - 0x15E5)
 const uint8_t tune_tempo_data[] = {0x00, 0x03, 0x03}; // tempos for tune 0, 1, 2
 const uint8_t *const tune_track_data[][3] = {
-	{nullptr, nullptr, nullptr},                               // Tune 0 (no data specified, likely silent/unused)
+	{nullptr, nullptr, nullptr},                               // Tune 0 (null pointers = stop)
 	{voice1_track_data, voice2_track_data, voice3_track_data}, // Tune 1
-	{voice1_track_data, voice2_track_data, voice3_track_data}  // Tune 2 (Assume same as tune 1 for now if needed)
 };
 const int NUM_TUNES = sizeof(tune_tempo_data) / sizeof(tune_tempo_data[0]);
 
@@ -193,37 +179,23 @@ const int voice_sid_offset[] = {0, 7, 14};
 // Debug log levels
 #define DEBUG_LEVEL 4 // 0: Minimal, 1: Basic Flow, 2: Detailed State
 
-DrillerSIDPlayer::DrillerSIDPlayer(Audio::Mixer *mixer) : _sid(nullptr),
-														  _mixer(mixer),
-														  _soundHandle(), // Default initialize
-														  _sampleRate(mixer->getOutputRate()),
-														  _cyclesPerSample(0.0f),
-														  _cycleCounter(0.0),
+DrillerSIDPlayer::DrillerSIDPlayer() : _sid(nullptr),
 														  _playState(STOPPED),
 														  _targetTuneIndex(0),
-														  _globalTempo(3),       // Default tempo
-														  _globalTempoCounter(1) // Start immediately
+														  _globalTempo(3),        // Default tempo
+														  _globalTempoCounter(1)  // Start immediately
 {
 	initSID();
 
-	// Calculate cycles per sample for timing in readBuffer
-	// Using PAL clock rate for C64 SID
-	const double PAL_CLOCK_FREQ = 985248.0; // Use PAL C64 clock
-	_cyclesPerSample = PAL_CLOCK_FREQ / _sampleRate;
-
-	// Start the stream via the mixer
-	// Pass address of _soundHandle for it to be filled by playStream
-	_mixer->playStream(Audio::Mixer::kMusicSoundType, &_soundHandle, this, -1, Audio::Mixer::kMaxChannelVolume, 0, DisposeAfterUse::NO, true);
-	debug(DEBUG_LEVEL >= 1, "Driller SID Player Initialized (Sample Rate: %d Hz)", _sampleRate);
+	debug(DEBUG_LEVEL >= 1, "Driller SID Player Initialized");
 }
 
 DrillerSIDPlayer::~DrillerSIDPlayer() {
-	// Check if sound handle is valid before stopping (might not be if playStream failed)
-	// A better check might involve a dedicated flag or checking if handle is non-zero/default
-	if (_mixer) {                         // Ensure mixer exists
-		_mixer->stopHandle(_soundHandle); // Pass handle by value
+	if (_sid) {
+		_sid->stop();
+		delete _sid;
 	}
-	delete _sid;
+
 	debug(DEBUG_LEVEL >= 1, "Driller SID Player Destroyed");
 }
 
@@ -253,61 +225,23 @@ void DrillerSIDPlayer::stopMusic() {
 	}
 }
 
-// --- AudioStream API ---
-int DrillerSIDPlayer::readBuffer(int16 *buffer, const int numSamples) {
-	if (!_sid) { // Safety check if SID initialization failed
-		memset(buffer, 0, numSamples * sizeof(int16));
-		return numSamples;
-	}
-
-	int samplesGenerated = 0;
-	while (samplesGenerated < numSamples) {
-		// Determine how many SID cycles until the next C64 frame tick (approx 50Hz for PAL)
-		const double CYCLES_PER_FRAME = 985248.0 / 50.0; // PAL C64 clock / 50Hz VSync
-
-		// How many cycles to run SID for this iteration?
-		double cyclesToRun = CYCLES_PER_FRAME - _cycleCounter;
-		int samplesToGenerate = MIN((int)ceil(cyclesToRun / _cyclesPerSample), numSamples - samplesGenerated);
-		if (samplesToGenerate <= 0)
-			samplesToGenerate = 1; // Ensure progress
-
-		// Prevent requesting more samples than the buffer has space for
-		samplesToGenerate = MIN(samplesToGenerate, numSamples - samplesGenerated);
-
-		double cyclesForThisStep = samplesToGenerate * _cyclesPerSample;
-
-		// Run the SID emulation
-		Resid::cycle_count x = static_cast<Resid::cycle_count>(cyclesForThisStep);
-		// Use the standard reSID clock method
-		_sid->updateClock(x, buffer + samplesGenerated, samplesToGenerate);
-
-		_cycleCounter += cyclesForThisStep;
-		samplesGenerated += samplesToGenerate;
-
-		// If a frame boundary is crossed, run the player logic
-		if (_cycleCounter >= CYCLES_PER_FRAME) {
-			_cycleCounter -= CYCLES_PER_FRAME; // Keep track of remainder cycles
-			playFrame();
-		}
-	}
-	return numSamples; // We always fill the buffer requested
-}
-
 // --- SID Interaction ---
 void DrillerSIDPlayer::SID_Write(int reg, uint8_t data) {
 	if (_sid) {
 		debug(DEBUG_LEVEL >= 3, "SID Write: Reg $%02X = $%02X", reg, data);
-		_sid->write(reg, data);
+		_sid->writeReg(reg, data);
 	}
 }
 
 void DrillerSIDPlayer::initSID() {
-	delete _sid; // Delete previous instance if any
-	_sid = new Resid::SID();
-	// Use PAL clock rate
-	_sid->set_sampling_parameters(985248.0, _sampleRate);
-	_sid->enable_filter(true); // Enable filter emulation
-	_sid->reset();
+	if (_sid) {
+		_sid->stop();
+		delete _sid; // Delete previous instance if any
+	}
+
+	_sid = SID::Config::create(SID::Config::kSidPAL);
+	if (!_sid || !_sid->init())
+		error("Failed to initialise SID emulator");
 
 	// Reset SID registers (like 0x0910 - reset_voices)
 	SID_Write(0x04, 0);    // V1 Ctrl = 0
@@ -317,10 +251,12 @@ void DrillerSIDPlayer::initSID() {
 	SID_Write(0x16, 0);    // Filter Cutoff Hi = 0
 	SID_Write(0x17, 0);    // Filter Res/Ctrl = 0
 	SID_Write(0x18, 0x0F); // Volume & Filter Mode = Max Volume
+
+	_sid->start(new Common::Functor0Mem<void, DrillerSIDPlayer>(this, &DrillerSIDPlayer::onTimer), 50);
 }
 
 // --- Player Logic (Called once per C64 frame) ---
-void DrillerSIDPlayer::playFrame() {
+void DrillerSIDPlayer::onTimer() {
 	// Handle global state changes first (STOPPED, CHANGING_TUNE)
 	if (_playState == STOPPED) {
 		debug(DEBUG_LEVEL >= 2, "Driller: Frame - Music Stopped");
@@ -346,28 +282,21 @@ void DrillerSIDPlayer::playFrame() {
 	// cmp #$AB; beq continue_playing
 	// We are now in the PLAYING state
 
-	// Update global tempo counter (0x09A5)
-	bool tempoTick = false;
-	if (_globalTempoCounter > 0) { // Only decrement if positive
-		_globalTempoCounter--;
-	}
-
-	if (_globalTempoCounter == 0) {
-		tempoTick = true;
-		_globalTempoCounter = _globalTempo; // Reload counter (0x09AA)
-		if (_globalTempoCounter == 0)
-			_globalTempoCounter = 1; // Avoid getting stuck if tempo is 0
-		debug(DEBUG_LEVEL >= 2, "Driller: Tempo Tick! Reloading counter to %d", _globalTempoCounter);
-	}
-
 	// Process each voice (0x0E46 - 0x0E55)
 	for (int voiceIndex = 0; voiceIndex < 3; ++voiceIndex) {
-		playVoice(voiceIndex, tempoTick);
+		playVoice(voiceIndex);
 	}
 
-	// Update master volume after processing voices (Maybe not needed if set elsewhere)
-	// The original sets it in reset_voices and potentially instrument data
-	// SID_Write(0x18, 0x0F); // Ensure volume is max - Done in init/reset
+	// Corresponds to voice_done (0x09A1)
+	// After all 3 voices processed (cpx #$0E), handle tempo counter once per frame
+	// dec tempo_ctr (0x09A5)
+	_globalTempoCounter--;
+
+	// bpl @done (0x09A8)
+	if (_globalTempoCounter < 0) {
+		// lda tempo; sta tempo_ctr (0x09AA)
+		_globalTempoCounter = _globalTempo;
+	}
 }
 
 // --- Tune Loading ---
@@ -398,7 +327,7 @@ void DrillerSIDPlayer::handleChangeTune(int tuneIndex) {
 		const uint8_t *trackPtr = nullptr; // Temp variable
 		if (currentTuneTracks) {           // Check if the tune array pointer is valid
 			trackPtr = currentTuneTracks[i];
-			debug(DEBUG_LEVEL >= 1, "Driller: V%d - Got track pointer %p from currentTuneTracks[%d]", i, trackPtr, i);
+			debug(DEBUG_LEVEL >= 1, "Driller: V%d - Got track pointer %p from currentTuneTracks[%d]", i, (const void *)trackPtr, i);
 		} else {
 			debug(DEBUG_LEVEL >= 0, "Driller: V%d - Cannot get track pointer because currentTuneTracks is NULL", i);
 		}
@@ -407,7 +336,7 @@ void DrillerSIDPlayer::handleChangeTune(int tuneIndex) {
 		_voiceState[i].trackDataPtr = trackPtr;
 
 		// *** ADD THIS LOG - AFTER ASSIGNING TO voiceState ***
-		debug(DEBUG_LEVEL >= 1, "Driller: V%d - Assigned _voiceState[%d].trackDataPtr = %p", i, i, _voiceState[i].trackDataPtr);
+		debug(DEBUG_LEVEL >= 1, "Driller: V%d - Assigned _voiceState[%d].trackDataPtr = %p", i, i, (const void *)_voiceState[i].trackDataPtr);
 
 		if (!_voiceState[i].trackDataPtr) {
 			// This block now just confirms the assignment result
@@ -438,7 +367,7 @@ void DrillerSIDPlayer::handleResetVoices() {
 		// The trackDataPtr was just assigned in handleChangeTune.
 		// Reset only the playback state relevant for starting a tune/track.
 
-		debug(DEBUG_LEVEL >= 1, "Driller: Reset Voice %d - Checking _voiceState[%d].trackDataPtr (%p)...", i, i, _voiceState[i].trackDataPtr);
+		debug(DEBUG_LEVEL >= 1, "Driller: Reset Voice %d - Checking _voiceState[%d].trackDataPtr (%p)...", i, i, (const void *)_voiceState[i].trackDataPtr);
 
 		if (_voiceState[i].trackDataPtr != nullptr) {
 			debug(DEBUG_LEVEL >= 1, "Driller: Reset Voice %d - Track pointer OK. Initializing playback state.", i);
@@ -502,8 +431,8 @@ void DrillerSIDPlayer::handleResetVoices() {
 }
 
 // --- Voice Processing ---
-void DrillerSIDPlayer::playVoice(int voiceIndex, bool tempoTick) {
-	// debug(DEBUG_LEVEL >= 2, "Driller: Processing Voice %d (Tempo Tick: %d)", voiceIndex, tempoTick);
+void DrillerSIDPlayer::playVoice(int voiceIndex) {
+	// debug(DEBUG_LEVEL >= 2, "Driller: Processing Voice %d", voiceIndex);
 	VoiceState &v = _voiceState[voiceIndex];
 	int sidOffset = voice_sid_offset[voiceIndex];
 
@@ -525,13 +454,7 @@ void DrillerSIDPlayer::playVoice(int voiceIndex, bool tempoTick) {
 	const uint8_t *instA0 = &instrumentDataA0[instBase];
 	const uint8_t *instA1 = &instrumentDataA1[instBase];
 
-	// Hard Restart / Buzz Effect Check (Inst A0[7] & 0x01) - Apply if active
-	// This check was previously in applyNote, moved here to match L1005 check location relative to effects
-	if (v.hardRestartActive) {
-		applyHardRestart(v, sidOffset, instA0, instA1);
-	}
-
-	// Glide down effect? (L094E) - Inst A0[7] & 0x04
+	// Waveform transition effect (L0944-L095E) - Inst A0[7] & 0x04
 	// This logic updates ctrl register $D404, likely wave or gate
 	if (instA0[7] & 0x04) {
 		if (v.glideDownTimer > 0) { // voice1_two_ctr,x (0xD3E)
@@ -547,496 +470,352 @@ void DrillerSIDPlayer::playVoice(int voiceIndex, bool tempoTick) {
 		}
 	}
 
-	// --- Tempo Tick: Process note/delay ---
-	if (tempoTick) { // Added braces for clarity
-		// Corresponds to L0964 -> L096E path when tempo_ctr hits 0
-
-		// Decrement voice delay counter (0x0969 dec voice1_ctrl2,x)
-		if (v.delayCounter >= 0) { // If positive or zero, decrement
-			v.delayCounter--;
-			// --- Fix 4: Add Logging ---
-			debug(DEBUG_LEVEL >= 2, "Driller V1: Tempo Tick - Delay Counter decremented to %d", v.delayCounter);
-			// --- End Fix 4 ---
-		}
-
-		// If counter is still non-negative (was >= 0 before decrement), note holds
+	// Corresponds to lda tempo_ctr; bne L096E (0x0964)
+	// The per-voice processing is gated by the global tempo counter being zero.
+	if (_globalTempoCounter == 0) {
+		// dec voice1_ctrl2,x (0x0969)
 		if (v.delayCounter >= 0) {
-			// bmi L09B6 is false
-			// Apply continuous effects for this frame (original jumps to L0B33 via L096E)
-			applyContinuousEffects(v, sidOffset, instA0, instA1);
-			return; // Return AFTER applying effects for the holding note
+			v.delayCounter--;
 		}
 
-		// --- Delay Counter Expired (was 0, now -1): Read New Note/Command (L09B6 onwards) ---
-		debug(DEBUG_LEVEL >= 1, "Driller V1: Delay Counter Expired - Reading new pattern data"); // Add this log
+		// If delay counter has expired, read new data from the pattern.
+		if (v.delayCounter < 0) {
+			debug(DEBUG_LEVEL >= 1, "Driller V%d: Delay Counter Expired - Reading new pattern data", voiceIndex);
 
-		// ... rest of pattern reading logic ...
+			// --- Start of inlined pattern reading logic ---
+			// Get current pattern index from track (09C0-09CE)
+			uint8_t patternNum = v.trackDataPtr[v.trackIndex];
 
-	} else { // Not a tempo tick
-		applyContinuousEffects(v, sidOffset, instA0, instA1);
-		return; // No note processing on non-tempo ticks
-	}
-
-	// If tempoTick was true AND delayCounter became < 0, pattern processing happened above.
-	// If we reach here, it means a new note/command was processed.
-	// Do we need to call applyContinuousEffects *again*?
-	// The original assembly jumps to voice_done (0B30, 0CCB etc) after effects or note setting.
-	// Let's assume effects are applied either during hold (in the delayCounter >= 0 block)
-	// or implicitly handled as part of the new note setup (e.g. frequency set directly).
-	// Avoid calling applyContinuousEffects twice per tick.
-	// The structure now correctly handles this:
-	// - If !tempoTick -> applyEffects -> return
-	// - If tempoTick:
-	//    - Decrement delay
-	//    - If delay >= 0 -> applyEffects -> return
-	//    - If delay < 0 -> processPattern -> (applyNote potentially called) -> implicit return (end of function)
-
-	// --- Delay Counter Expired (was 0, now -1): Read New Note/Command (L09B6 onwards) ---
-	// Reset delay counter - will be set by FD command later if needed. Stays -1 for now.
-
-	// Store track/pattern pointers locally (like 09B6-09BE)
-	// Already have v.trackDataPtr, v.patternDataPtr
-
-	// Get current pattern index from track (09C0-09CE)
-	uint8_t patternNum = v.trackDataPtr[v.trackIndex];
-
-	// Handle track end/loop markers (0AE7, 0AF2)
-	if (patternNum == 0xFF) { // End of track list
-		debug(DEBUG_LEVEL >= 1, "Driller V%d: Track %d end marker (FF), looping.", voiceIndex, v.trackIndex);
-		v.trackIndex = 0; // Loop to start
-		patternNum = v.trackDataPtr[v.trackIndex];
-		if (patternNum == 0xFF || patternNum == 0xFE || !tune_track_data[_targetTuneIndex][voiceIndex]) { // Check again after loop or if track is null initially
-			debug(DEBUG_LEVEL >= 0, "Driller V%d: Stopping music after track loop (FF/FE/Null).", voiceIndex);
-			stopMusic(); // Stop if loop points to end marker or track is invalid
-			return;
-		}
-	} else if (patternNum == 0xFE) { // Stop playback command
-		debug(DEBUG_LEVEL >= 0, "Driller V%d: Stopping music due to track marker FE.", voiceIndex);
-		stopMusic();
-		return;
-	}
-
-	if (patternNum >= NUM_PATTERNS) {
-		debug(DEBUG_LEVEL >= 0, "Driller V%d: Invalid pattern number %d at track index %d", voiceIndex, patternNum, v.trackIndex);
-		v.trackIndex++; // Skip invalid entry
-		// Fetch next pattern number immediately to avoid getting stuck in invalid state for a frame
-		size_t trackSize = (voiceIndex == 0) ? sizeof(voice1_track_data) : ((voiceIndex == 1) ? sizeof(voice2_track_data) : sizeof(voice3_track_data));
-		if (v.trackIndex >= trackSize) { // Check for track end
-			debug(DEBUG_LEVEL >= 0, "Driller V%d: Stopping music, track index out of bounds after skipping invalid pattern.", voiceIndex);
-			stopMusic();
-			return;
-		}
-		patternNum = v.trackDataPtr[v.trackIndex];
-		if (patternNum == 0xFF || patternNum == 0xFE) {
-			debug(DEBUG_LEVEL >= 0, "Driller V%d: Stopping music, encountered FF/FE after skipping invalid pattern.", voiceIndex);
-			stopMusic();
-			return;
-		}
-		if (patternNum >= NUM_PATTERNS) { // Still invalid? Stop.
-			debug(DEBUG_LEVEL >= 0, "Driller V%d: Stopping music, encountered second invalid pattern.", voiceIndex);
-			stopMusic();
-			return;
-		}
-		// Continue with the new valid patternNum
-	}
-
-	// Only update pattern pointer if it changed or wasn't set
-	if (v.patternDataPtr != pattern_addresses[patternNum]) {
-		v.patternDataPtr = pattern_addresses[patternNum];
-		v.patternIndex = 0; // Reset index when pattern changes
-		debug(DEBUG_LEVEL >= 2, "Driller V%d: Switched to Pattern %d", voiceIndex, patternNum);
-	}
-
-	// Reset state related to previous note/effects for gate control
-	_tempControl3 = 0xFF; // Reset gate mask (0x09D0) - Currently unused in C++ code
-	v.whatever0 = 0;      // Reset effect states (0x09D5 onwards)
-	v.whatever1 = 0;
-	v.whatever2 = 0;
-
-	// --- Read Pattern Data Loop (0x09E0 read_note_or_ctrl) ---
-	bool noteProcessed = false;
-	while (!noteProcessed) {
-		if (!v.patternDataPtr) { // Safety check
-			debug(DEBUG_LEVEL >= 0, "Driller V%d: Pattern pointer is null!", voiceIndex);
-			v.trackIndex++;       // Advance track to avoid getting stuck
-			noteProcessed = true; // Exit loop, try next track index next frame
-			break;
-		}
-
-		// Check pattern bounds - Use FF as terminator
-		if (v.patternIndex >= 255) { // Sanity check pattern length
-			debug(DEBUG_LEVEL >= 0, "Driller V%d: Pattern index overflow (>255), resetting.", voiceIndex);
-			v.patternIndex = 0;   // Reset pattern index
-			v.trackIndex++;       // Advance track index
-			noteProcessed = true; // Exit loop
-			break;                // Go to next track entry
-		}
-
-		uint8_t cmd = v.patternDataPtr[v.patternIndex];
-		debug(DEBUG_LEVEL >= 3, "Driller V%d: Reading Pat %d Idx %d: Cmd $%02X", voiceIndex, patternNum, v.patternIndex, cmd);
-
-		if (cmd == 0xFF) { // End of pattern marker (0x0AD6)
-			debug(DEBUG_LEVEL >= 2, "Driller V%d: End of Pattern %d detected.", voiceIndex, patternNum);
-			v.patternIndex = 0;   // Reset pattern index
-			v.trackIndex++;       // Advance track index (0x0ADF)
-			noteProcessed = true; // Exit inner loop, done processing for this tick
-			break;                // Exit pattern loop, next tick will get next pattern index from track
-		}
-
-		if (cmd >= 0xFD) {                                                       // --- Control Commands ---
-			v.patternIndex++;                                                    // Consume command byte
-			if (!v.patternDataPtr || v.patternDataPtr[v.patternIndex] == 0xFF) { // Check bounds before reading data
-				debug(DEBUG_LEVEL >= 1, "Driller V%d: Pattern ended unexpectedly after Fx command.", voiceIndex);
-				noteProcessed = true;
-				break;
-			}
-			uint8_t dataByte = v.patternDataPtr[v.patternIndex]; // Read data byte
-
-			// Effect FD: Set Note Duration (0x09E5 + 0x09ED)
-			if (cmd == 0xFD) {
-				v.noteDuration = dataByte; // Store duration (0x09EF)
-				debug(DEBUG_LEVEL >= 2, "Driller V%d: Cmd FD, Set Duration = %d", voiceIndex, v.noteDuration);
-			}
-			// Effect FC: Portamento Up (0x0A17) / FE in disassembly comment? Check logic.
-			// Original checks FD, then FB, then FA. FE is not checked explicitly.
-			// Assuming FE should behave like FC based on command range >= FD.
-			else if (cmd == 0xFE) { // FC in disassembly checks cmp #$FB, bne @effect_fc_2
-				debug(DEBUG_LEVEL >= 2, "Driller V%d: Cmd FE/FC, Porta Up Param = $%02X", voiceIndex, dataByte);
-				if (v.currentNote > 0) {                      // Only apply if a note is playing
-					v.whatever2 = (instA0[7] & 0x02) ? 4 : 2; // Porta Up Type
-					v.portaStepRaw = dataByte;
-					v.whatever0 = 0;
-					v.whatever1 = 0;  // Reset other effects
-					v.portaSpeed = 0; // Force recalc
+			// Handle track end/loop markers (0AE7, 0AF2)
+			if (patternNum == 0xFF) { // End of track list
+				debug(DEBUG_LEVEL >= 1, "Driller V%d: Track %d end marker (FF), looping.", voiceIndex, v.trackIndex);
+				v.trackIndex = 0; // Loop to start
+				patternNum = v.trackDataPtr[v.trackIndex];
+				if (patternNum == 0xFF || patternNum == 0xFE || !tune_track_data[_targetTuneIndex][voiceIndex]) { // Check again after loop or if track is null initially
+					debug(DEBUG_LEVEL >= 0, "Driller V%d: Stopping music after track loop (FF/FE/Null).", voiceIndex);
+					stopMusic(); // Stop if loop points to end marker or track is invalid
+					return;
 				}
+			} else if (patternNum == 0xFE) { // Stop playback command
+				debug(DEBUG_LEVEL >= 0, "Driller V%d: Stopping music due to track marker FE.", voiceIndex);
+				stopMusic();
+				return;
 			}
-			// Effect FB: Portamento Down (0x09FB)
-			else { // Must be FB (This case unreachable if cmd == 0xFE handled above?)
-				// Correction: Original logic is cmp $FD -> bcc check_fb_fc -> cmp $FB -> bcc check_fa -> cmp $FB -> bne effect_fc -> effect_fb
-				// So if >= FD, it *is* FD. If not FD, then check FB. If FB, do FB. If not FB, do FC (lda #2, bne do_effect).
-				// Let's fix the logic:
-				/* Handled above for FD */
-				debug(DEBUG_LEVEL >= 0, "Driller V%d: Unexpected path for Cmd $%02X", voiceIndex, cmd);
-			}
-			// Continue reading pattern (next_note_or_ctrl 09F2/0A15)
-			v.patternIndex++;
 
-		} else if (cmd >= 0xFB) {                                                // Effect FB/FC
-			v.patternIndex++;                                                    // Consume command byte
-			if (!v.patternDataPtr || v.patternDataPtr[v.patternIndex] == 0xFF) { // Check bounds before reading data
-				debug(DEBUG_LEVEL >= 1, "Driller V%d: Pattern ended unexpectedly after FB/FC command.", voiceIndex);
-				noteProcessed = true;
-				break;
+			if (patternNum >= NUM_PATTERNS) {
+				debug(DEBUG_LEVEL >= 0, "Driller V%d: Invalid pattern number %d at track index %d", voiceIndex, patternNum, v.trackIndex);
+				v.trackIndex++; // Skip invalid entry
+				// Fetch next pattern number immediately to avoid getting stuck in invalid state for a frame
+				size_t trackSize = (voiceIndex == 0) ? sizeof(voice1_track_data) : ((voiceIndex == 1) ? sizeof(voice2_track_data) : sizeof(voice3_track_data));
+				if (v.trackIndex >= trackSize) { // Check for track end
+					debug(DEBUG_LEVEL >= 0, "Driller V%d: Stopping music, track index out of bounds after skipping invalid pattern.", voiceIndex);
+					stopMusic();
+					return;
+				}
+				patternNum = v.trackDataPtr[v.trackIndex];
+				if (patternNum == 0xFF || patternNum == 0xFE) {
+					debug(DEBUG_LEVEL >= 0, "Driller V%d: Stopping music, encountered FF/FE after skipping invalid pattern.", voiceIndex);
+					stopMusic();
+					return;
+				}
+				if (patternNum >= NUM_PATTERNS) { // Still invalid? Stop.
+					debug(DEBUG_LEVEL >= 0, "Driller V%d: Stopping music, encountered second invalid pattern.", voiceIndex);
+					stopMusic();
+					return;
+				}
+				// Continue with the new valid patternNum
 			}
-			uint8_t portaParam = v.patternDataPtr[v.patternIndex]; // Consume data byte
 
-			if (v.currentNote > 0) {
-				// Set porta type (1=Down(FB), 2=Up(FC)) or (3=DownH, 4=UpH)
-				if (cmd == 0xFB) {                            // effect_fb_1
-					v.whatever2 = (instA0[7] & 0x02) ? 3 : 1; // (0A01)
-					debug(DEBUG_LEVEL >= 2, "Driller V%d: Cmd FB, Porta Down Param = $%02X (Type %d)", voiceIndex, portaParam, v.whatever2);
-				} else {                                      // FC (effect_fc_2)
-					v.whatever2 = (instA0[7] & 0x02) ? 4 : 2; // (0A17 -> 0A01)
-					debug(DEBUG_LEVEL >= 2, "Driller V%d: Cmd FC, Porta Up Param = $%02X (Type %d)", voiceIndex, portaParam, v.whatever2);
+			// Only update pattern pointer if it changed or wasn't set
+			if (v.patternDataPtr != pattern_addresses[patternNum]) {
+				v.patternDataPtr = pattern_addresses[patternNum];
+				v.patternIndex = 0; // Reset index when pattern changes
+				debug(DEBUG_LEVEL >= 2, "Driller V%d: Switched to Pattern %d", voiceIndex, patternNum);
+			}
+
+			// Reset state related to previous note/effects for gate control
+			v.gateMask = 0xFF; // Reset gate mask (0x09D0: lda #$FF; sta control3)
+			v.whatever0 = 0;   // Reset effect states (0x09D5 onwards)
+			v.whatever1 = 0;
+			v.whatever2 = 0;
+
+			// --- Read Pattern Data Loop (0x09E0 read_note_or_ctrl) ---
+			bool noteProcessed = false;
+			while (!noteProcessed) {
+				if (!v.patternDataPtr) { // Safety check
+					debug(DEBUG_LEVEL >= 0, "Driller V%d: Pattern pointer is null!", voiceIndex);
+					v.trackIndex++;       // Advance track to avoid getting stuck
+					noteProcessed = true; // Exit loop, try next track index next frame
+					break;
 				}
 
-				v.portaStepRaw = portaParam; // Store raw porta speed (0A0A / 0A19->0A0A)
-				v.whatever0 = 0;             // Reset vibrato state (0A0D)
-				v.whatever1 = 0;             // Reset arpeggio state (0A0F)
-				v.portaSpeed = 0;            // Force recalc
-			} else {
-				debug(DEBUG_LEVEL >= 2, "Driller V%d: Ignoring FB/FC command, no note playing.", voiceIndex);
-			}
-			v.patternIndex++; // Continue reading pattern (0A15)
+				// Check pattern bounds - Use FF as terminator
+				if (v.patternIndex >= 255) { // Sanity check pattern length
+					debug(DEBUG_LEVEL >= 0, "Driller V%d: Pattern index overflow (>255), resetting.", voiceIndex);
+					v.patternIndex = 0;   // Reset pattern index
+					v.trackIndex++;       // Advance track index
+					noteProcessed = true; // Exit loop
+					break;                // Go to next track entry
+				}
 
-		} else if (cmd == 0xFA) { // --- Effect FA: Set Instrument --- (0x0A1B)
-			v.patternIndex++;
-			if (!v.patternDataPtr || v.patternDataPtr[v.patternIndex] == 0xFF) { // Check bounds before reading data
-				debug(DEBUG_LEVEL >= 1, "Driller V%d: Pattern ended unexpectedly after FA command.", voiceIndex);
-				noteProcessed = true;
-				break;
-			}
-			uint8_t instNum = v.patternDataPtr[v.patternIndex];
-			if (instNum >= NUM_INSTRUMENTS) {
-				debug(DEBUG_LEVEL >= 0, "Driller V%d: Invalid instrument number %d, using 0.", voiceIndex, instNum);
-				instNum = 0;
-			}
-			v.instrumentIndex = instNum * 8; // Store base offset (0A28)
-			debug(DEBUG_LEVEL >= 2, "Driller V%d: Cmd FA, Set Instrument = %d", voiceIndex, instNum);
+				uint8_t cmd = v.patternDataPtr[v.patternIndex];
+				debug(DEBUG_LEVEL >= 3, "Driller V%d: Reading Pat %d Idx %d: Cmd $%02X", voiceIndex, patternNum, v.patternIndex, cmd);
 
-			// Update local pointers for instrument data
-			instBase = v.instrumentIndex;
-			if (instBase < 0 || (size_t)instBase >= sizeof(instrumentDataA0))
-				instBase = 0; // Bounds check
-			instA0 = &instrumentDataA0[instBase];
-			instA1 = &instrumentDataA1[instBase];
+				if (cmd == 0xFF) { // End of pattern marker (0x0AD6)
+					debug(DEBUG_LEVEL >= 2, "Driller V%d: End of Pattern %d detected.", voiceIndex, patternNum);
+					v.patternIndex = 0;   // Reset pattern index
+					v.trackIndex++;       // Advance track index (0x0ADF)
+					noteProcessed = true; // Exit inner loop, done processing for this tick
+					break;                // Exit pattern loop, next tick will get next pattern index from track
+				}
 
-			// Set ADSR based on instrument (0A2C - 0A3E)
-			uint8_t adsrByte = instA0[0];       // 0A2C
-			v.sustainRelease = adsrByte & 0x0F; // Low nibble to SR (0A32) -> ctrl0
-			v.attackDecay = adsrByte & 0xF0;    // High nibble to AD (0A3B/0A3E) -> something_else[0/1]
-			// Store in voice state for SID write later
-			v.ctrl0 = v.sustainRelease;
-			v.something_else[0] = v.attackDecay; // Map to something_else array
-			v.something_else[1] = v.attackDecay; // Seems duplicated in disassembly?
-			// Also set PW from instA0[0]? Disassembly sets something_else[0] and [1] to AD (hi nibble)
-			// Pulse width seems set later from something_else[0] and [2] ? Let's use [0] for AD.
-			// Let's assume instA0[2] (often xx) and instA0[3] (often 00) are PW lo/hi nibble?
-			// Or maybe something_else[0]/[2] ARE PW and ADSR needs separate vars?
-			// Revisit PW setting in applyNote based on L0AC2. It uses something_else[0] and [2].
-			// Let's store ADSR in dedicated vars, and use something_else for PW based on instrument.
-			// What part of instrument sets PW? L0AC2 uses something_else[0/2]. FA command sets something_else[0/1/2].
-			// FA: pla -> and #F0 -> sta something_else[0] / [1]
-			// FA: pha -> and #0F -> sta something_else[2] / ctrl0
-			// This means: AD Hi Nibble -> PW Lo Byte? AD Hi Nibble -> something_else[1]? SR Lo Nibble -> PW Hi Nibble? SR Lo Nibble -> ctrl0?
-			// Let's follow the variable names:
-			v.attackDecay = instA0[0] & 0xF0;    // Stored in something_else[0] & [1]
-			v.sustainRelease = instA0[0] & 0x0F; // Stored in something_else[2] & ctrl0
-			v.something_else[0] = v.attackDecay;
-			v.something_else[1] = v.attackDecay;    // ???
-			v.something_else[2] = v.sustainRelease; // PW Hi?
-			v.ctrl0 = v.sustainRelease;             // SR?
+				if (cmd >= 0xFD) {                                                       // --- Control Commands ---
+					v.patternIndex++;                                                    // Consume command byte
+					if (!v.patternDataPtr || v.patternDataPtr[v.patternIndex] == 0xFF) { // Check bounds before reading data
+						debug(DEBUG_LEVEL >= 1, "Driller V%d: Pattern ended unexpectedly after Fx command.", voiceIndex);
+						noteProcessed = true;
+						break;
+					}
+					uint8_t dataByte = v.patternDataPtr[v.patternIndex]; // Read data byte
 
-			debug(DEBUG_LEVEL >= 3, "Driller V%d: Inst %d - ADSR Byte: $%02X -> AD: $%02X, SR: $%02X", voiceIndex, instNum, adsrByte, v.attackDecay, v.sustainRelease);
+					// Effect FD/FE: Set Note Duration (0x09E5 + 0x09ED)
+					// Any command >= FD that is not FF (end of pattern) sets the duration.
+					v.noteDuration = dataByte; // Store duration (0x09EF)
+					debug(DEBUG_LEVEL >= 2, "Driller V%d: Cmd $%02X, Set Duration = %d", voiceIndex, cmd, v.noteDuration);
 
-			// Continue reading pattern (0A41 -> 09F2)
-			v.patternIndex++;
+					// Continue reading pattern (next_note_or_ctrl 09F2/0A15)
+					v.patternIndex++;
 
-		} else {                 // --- Plain Note --- (0x0A1D -> 0A44)
-			v.currentNote = cmd; // Store note value (0A44)
-			debug(DEBUG_LEVEL >= 2, "Driller V%d: Note Cmd = $%02X (%d)", voiceIndex, v.currentNote, v.currentNote);
-			// Set delay counter based on previously read duration (FD command)
-			// If no FD command, duration is 0, so delayCounter is set to 0
-			// The counter is checked *after* decrementing. So if duration is N, it lasts N ticks.
-			// If duration is 1, counter=1 -> dec=0 -> hold -> dec=-1 -> new note. Lasts 1 tick.
-			// If duration is 0, counter=0 -> dec=-1 -> new note. Lasts 0 ticks (effectively ignored?).
-			// Let's set counter = duration.
-			v.delayCounter = v.noteDuration; // (0A47 -> 0A4A)
-			v.noteDuration = 0;              // Reset duration for next note
+				} else if (cmd >= 0xFB) {                                                // Effect FB/FC
+					v.patternIndex++;                                                    // Consume command byte
+					if (!v.patternDataPtr || v.patternDataPtr[v.patternIndex] == 0xFF) { // Check bounds before reading data
+						debug(DEBUG_LEVEL >= 1, "Driller V%d: Pattern ended unexpectedly after FB/FC command.", voiceIndex);
+						noteProcessed = true;
+						break;
+					}
+					uint8_t portaParam = v.patternDataPtr[v.patternIndex]; // Consume data byte
 
-			// Reset hard restart counters (0A4D)
-			v.whatever3 = 0;
-			v.whatever4 = 0;
+					// FB = porta type 1 (down lo), FC = porta type 2 (up lo)
+					// Assembly: FB -> lda #$01 (0x09FF), FC -> lda #$02 (0x0A17)
+					if (cmd == 0xFB) {
+						v.whatever2 = 1; // (0x09FF: lda #$01; sta whatever+2)
+					} else { // FC
+						v.whatever2 = 2; // (0x0A17: lda #$02)
+					}
+					v.portaStepRaw = portaParam; // sta voice1_something (0x0A0A)
+					v.whatever1 = 0;             // sta whatever+1 (0x0A0F)
+					v.whatever0 = 0;             // sta whatever (0x0A12)
+					v.portaSpeed = 0;            // Force recalc
+					v.patternIndex++; // Continue reading pattern (0A15)
 
-			// Reset glide down timer (0A55)
-			v.glideDownTimer = 2; // voice1_two_ctr = 2
+				} else if (cmd == 0xFA) { // --- Effect FA: Set Instrument --- (0x0A1B)
+					v.patternIndex++;
+					if (!v.patternDataPtr || v.patternDataPtr[v.patternIndex] == 0xFF) { // Check bounds before reading data
+						debug(DEBUG_LEVEL >= 1, "Driller V%d: Pattern ended unexpectedly after FA command.", voiceIndex);
+						noteProcessed = true;
+						break;
+					}
+					uint8_t instNum = v.patternDataPtr[v.patternIndex];
+					if (instNum >= NUM_INSTRUMENTS) {
+						debug(DEBUG_LEVEL >= 0, "Driller V%d: Invalid instrument number %d, using 0.", voiceIndex, instNum);
+						instNum = 0;
+					}
+					v.instrumentIndex = instNum * 8; // Store base offset (0A28)
+					debug(DEBUG_LEVEL >= 2, "Driller V%d: Cmd FA, Set Instrument = %d", voiceIndex, instNum);
 
-			// Handle legato/slide (Instrument A0[7] & 0x02) (0A5D)
-			if (instA0[7] & 0x02) { // Check legato bit
-				// Copy AD high nibble again? (0A64) - Seems redundant
-				// v.something_else[0] = v.attackDecay; // If something_else maps to PW, this overwrites PW?
-				// Copy SR low nibble again? (0A6A)
-				// v.sustainRelease = v.ctrl0; // Ensure SR matches instrument
-				// Store in something_else[2]? Original stores ctrl0 to [2] (0A6D)
-				// v.something_else[2] = v.ctrl0; // Map ADSR to structure? No, assume PW.
-				// This block in assembly seems to just reload ADSR values into temp locations? Ignore for C++ struct model.
-				debug(DEBUG_LEVEL >= 3, "Driller V%d: Legato instrument flag set.", voiceIndex);
-			}
+					// Update local pointers for instrument data
+					instBase = v.instrumentIndex;
+					if (instBase < 0 || (size_t)instBase >= sizeof(instrumentDataA0))
+						instBase = 0; // Bounds check
+					instA0 = &instrumentDataA0[instBase];
+					instA1 = &instrumentDataA1[instBase];
 
-			// Apply Note Data
-			applyNote(v, sidOffset, instA0, instA1, voiceIndex);
+					// Set ADSR based on instrument (0A2C - 0A3E)
+					uint8_t adsrByte = instA0[0];       // 0A2C
+					v.sustainRelease = adsrByte & 0x0F; // Low nibble to SR (0A32) -> ctrl0
+					v.attackDecay = adsrByte & 0xF0;    // High nibble to AD (0A3B/0A3E) -> something_else[0/1]
+					// Store in voice state for SID write later
+					v.ctrl0 = v.sustainRelease;
+					v.something_else[0] = v.attackDecay;
+					v.something_else[1] = v.attackDecay; // Seems duplicated in disassembly?
+					// Also set PW from instA0[0]? Disassembly sets something_else[0] and [1] to AD (hi nibble)
+					// Pulse width seems set later from something_else[0] and [2] ? Let's use [0] for AD.
+					// Let's assume instA0[2] (often xx) and instA0[3] (often 00) are PW lo/hi nibble?
+					// Or maybe something_else[0]/[2] ARE PW and ADSR needs separate vars?
+					// Revisit PW setting in applyNote based on L0AC2. It uses something_else[0] and [2].
+					// Let's store ADSR in dedicated vars, and use something_else for PW based on instrument.
+					// What part of instrument sets PW? L0AC2 uses something_else[0/2]. FA command sets something_else[0/1/2].
+					// FA: pla -> and #F0 -> sta something_else[0] / [1]
+					// FA: pha -> and #0F -> sta something_else[2] / ctrl0
+					// This means: AD Hi Nibble -> PW Lo Byte? AD Hi Nibble -> something_else[1]? SR Lo Nibble -> PW Hi Nibble? SR Lo Nibble -> ctrl0?
+					// Let's follow the variable names:
+					v.attackDecay = instA0[0] & 0xF0;    // Stored in something_else[0] & [1]
+					v.sustainRelease = instA0[0] & 0x0F; // Stored in something_else[2] & ctrl0
+					v.something_else[0] = v.attackDecay;
+					v.something_else[1] = v.attackDecay;    // ???
+					v.something_else[2] = v.sustainRelease; // PW Hi?
+					v.ctrl0 = v.sustainRelease;             // SR?
 
-			// Continue reading pattern (but we are done with this note)
-			v.patternIndex++;
-			noteProcessed = true; // Exit the pattern reading loop for this frame
+					debug(DEBUG_LEVEL >= 3, "Driller V%d: Inst %d - ADSR Byte: $%02X -> AD: $%02X, SR: $%02X", voiceIndex, instNum, adsrByte, v.attackDecay, v.sustainRelease);
+
+					// Continue reading pattern (0A41 -> 09F2)
+					v.patternIndex++;
+
+				} else {                 // --- Plain Note --- (0x0A1D -> 0A44)
+					v.currentNote = cmd; // Store note value (0A44: sta stuff+3)
+					// Set delay counter based on previously read duration (0A47-0A4A)
+					v.delayCounter = v.noteDuration;
+
+					// Reset hard restart counters (0A4D-0A52)
+					v.whatever3 = 0;
+					v.whatever4 = 0;
+
+					// Reset glide down timer (0A55-0A57)
+					v.glideDownTimer = 2; // voice1_two_ctr = 2
+
+					// Apply Note Data (0A5D-0AB3)
+					applyNote(v, sidOffset, instA0, instA1, voiceIndex);
+
+					// Continue reading pattern
+					v.patternIndex++;
+					noteProcessed = true;
+				}
+
+			} // End while(!noteProcessed)
+			// --- End of inlined pattern reading logic ---
+
+			// L0AFC: Post-note effect setup - determine which continuous effect is active
+			postNoteEffectSetup(v, sidOffset, instA0, instA1);
 		}
+	}
 
-	} // End while(!noteProcessed)
-
-	// After processing note or commands for this tick, if a note wasn't fully processed (e.g. pattern end)
-	// we might need to apply effects. But if noteProcessed = true, applyNote was called which handles final writes.
-	// If noteProcessed = false (e.g. loop break), effects might need applying.
-	// Let's assume effects are only applied when a note holds or on non-tempo ticks.
-	// The call to applyContinuousEffects happens *outside* this loop if the delay counter held.
+	// ALWAYS apply continuous effects (L0B33+) for the current state of the voice.
+	// This runs every frame: on tempo ticks after note processing, and on non-tempo ticks directly.
+	applyContinuousEffects(v, sidOffset, instA0, instA1);
 }
 
 // --- Note Application ---
-// --- Note Application ---
+// Corresponds to @plain_note (0x0A44) through L0AAD (0x0AB3)
 void DrillerSIDPlayer::applyNote(VoiceState &v, int sidOffset, const uint8_t *instA0, const uint8_t *instA1, int voiceIndex) {
-	// Corresponds to 0xA70 onwards
+	uint8_t note = v.currentNote; // Already stored at @plain_note (0x0A44)
+	// v.delayCounter already set from v.noteDuration (0x0A47-0x0A4A)
+	// v.whatever3/4 already reset to 0 (0x0A4D-0x0A52)
+	// v.glideDownTimer already set to 2 (0x0A55-0x0A57)
 
-	uint8_t note = v.currentNote;
-	// uint16_t pulse = 0; // Remove - PW now uses something_else
-	uint16_t newPulseWidth = 0; // New PW value
-	uint8_t pwLoByte = 0;       // PW Lo Byte
-	uint8_t pwHiNibble = 0;     // PW Hi Byte
-	uint8_t writeAD = 0;
-	uint8_t writeSR = 0;
-	int currentInstNum = 0;
-	bool isRest = (note == 0);
-	// bool wasRestOrSlide = isRest; // Track if we started with note 0 (UNUSED?)
+	// Check legato bit instA0[7] & 0x02 (0x0A5D-0x0A6D)
+	if (instA0[7] & 0x02) {
+		// Legato: restore PW values from FA command backup
+		v.something_else[0] = v.something_else[1]; // something_else+1 -> something_else+0
+		v.something_else[2] = v.ctrl0;              // ctrl0 -> something_else+2
+	}
 
-	// --- MOVED EFFECT INITIALIZATION HERE ---
-	// Initialize effect states based on instrument flags (0xAFC onwards)
-	// Reset previous effect states only if it wasn't a slide? Maybe always reset on new note cmd?
-	// Let's reset effect triggers on *any* new note command (even 0), but keep porta/vib state if sliding?
-	// For now, reset triggers based on original:
-	// The original code resets whatever0/1/2 at 0x09D5 *before* the pattern loop.
-	// FB/FC/FA commands also reset whatever0/1.
-	// So, they should be reset unless a slide is happening.
-	// Let's rely on the reset before the loop and specific command resets.
-	// BUT, we need to SET the flags based on the instrument HERE.
+	// Handle note=0 (rest) at L0A70
+	if (note == 0) {
+		// Load previous note from things+6 (0x0A75)
+		note = v.currentNoteSlideTarget;
+		v.currentNote = note; // Update stuff+3 equivalent
+		v.currentNoteSlideTarget = 0; // Clear things+6 (0x0A7B-0x0A7D)
 
-	// Clear effect selection flags before setting based on instrument
-	// We might refine this later if effects should persist across rests
-	v.whatever0 = 0;
-	v.whatever1 = 0;
-	v.whatever2 = 0;
-	v.portaSpeed = 0; // Reset calculated porta speed
-	// Don't reset things_vib_state or stuff_arp counters here? Let effects manage their state.
+		// dec control3 (0x0A83)
+		v.gateMask--;
 
-	// Check Instrument A1[4] for Arpeggio? (L0B09) - Maps to 0xE67
+		// bne L0AAD - since control3 was 0xFF, now 0xFE, always branches
+		// Skip frequency write entirely for rests, jump to L0AAD
+	} else {
+		// Non-zero note: store as previous note (L0A88)
+		v.currentNoteSlideTarget = note; // things+6 = note
+
+		// Set frequency from note (L0A8C-L0AA1)
+		if (note >= 96) note = 95;
+		SID_Write(sidOffset + 1, frq_hi[note]); // $D401
+		SID_Write(sidOffset + 0, frq_lo[note]); // $D400
+		// Store in stuff variables: stuff[0]=lo, stuff[1]=lo, stuff[2]=hi, stuff[4]=hi
+		uint8_t fLo = frq_lo[note];
+		uint8_t fHi = frq_hi[note];
+		v.stuff_freq_porta_vib = fLo | (fHi << 8); // stuff[0]/[4]
+		v.stuff_freq_base = fLo | (fHi << 8);       // stuff[1]/[2]
+		v.stuff_freq_hard_restart = fLo | (fHi << 8);
+		v.currentFreq = v.stuff_freq_porta_vib;
+
+		// Write initial waveform (gate-on transient): instA0[6] -> $D404 (L0AA7-L0AAA)
+		SID_Write(sidOffset + 4, instA0[6]);
+	}
+
+	// L0AAD: Write control register with gate mask
+	// lda instA0[1]; AND control3; sta $D404 (0x0AAD-0x0AB3)
+	SID_Write(sidOffset + 4, instA0[1] & v.gateMask);
+
+	// Write ADSR from instrument (0x0AB6-0x0ABF)
+	SID_Write(sidOffset + 5, instA0[2]); // Attack / Decay
+	SID_Write(sidOffset + 6, instA0[3]); // Sustain / Release
+
+	// Write Pulse Width from something_else (0x0AC2-0x0ACB)
+	SID_Write(sidOffset + 2, v.something_else[0]); // PW Lo
+	SID_Write(sidOffset + 3, v.something_else[2]); // PW Hi
+
+	v.pulseWidth = v.something_else[0] | (v.something_else[2] << 8);
+}
+
+// --- Post-Note Effect Setup ---
+// Corresponds to L0AFC in the assembly. Runs after each note is applied.
+// Determines which continuous effect should be active based on instrument data.
+void DrillerSIDPlayer::postNoteEffectSetup(VoiceState &v, int sidOffset, const uint8_t *instA0, const uint8_t *instA1) {
+	// L0AFC: lda voice1_things+6,x; beq L0B33
+	if (v.currentNoteSlideTarget == 0)
+		return; // No note stored, skip to continuous effects (PW LFO etc.)
+
+	// Check if portamento already active from FB/FC pattern command (L0B04)
+	// lda voice1_whatever+2,x; bne L0B17
+	if (v.whatever2 != 0) {
+		// Already have porta from pattern command, go to porta processing
+		return; // Porta will run in applyContinuousEffects
+	}
+
+	int instBase = v.instrumentIndex;
+	if (instBase < 0 || (size_t)instBase >= sizeof(instrumentDataA0))
+		instBase = 0;
+
+	// Check instA1[4] for instrument-level portamento (L0B09)
+	// lda possibly_instrument_a1+4,y; beq L0B1A
 	if (instA1[4] != 0) {
-		debug(DEBUG_LEVEL >= 2, "Driller V%d: Activating Arpeggio from InstA1[4]=%02X", voiceIndex, instA1[4]);
-		uint8_t arpData = instA1[4];
-		v.arpTableIndex = arpData & 0x0F;
-		v.arpSpeedHiNibble = (arpData & 0xF0) >> 4;
-		if (v.arpTableIndex >= NUM_ARPEGGIOS)
-			v.arpTableIndex = 0;
-		v.stuff_arp_counter = 0; // Reset counter on activation
-		v.stuff_arp_note_index = 0;
-		v.whatever1 = 1; // Enable Arp
+		v.whatever2 = instA1[4];       // Store as porta type (L0B0E)
+		v.portaStepRaw = instA1[3];    // Store porta speed (L0B11-L0B14)
+		v.portaSpeed = 0;              // Force recalc
+		return; // jmp L0C5A - porta will run in applyContinuousEffects
 	}
-	// Check Instrument A1[0] for Vibrato? (L0B25) - Maps to 0xE89
-	else if (instA1[0] != 0) {
-		debug(DEBUG_LEVEL >= 2, "Driller V%d: Activating Vibrato from InstA1[0]=%02X, A1[1]=%02X", voiceIndex, instA1[0], instA1[1]);
-		v.things_vib_depth = instA1[0];                     // Depth
-		v.things_vib_delay_reload = instA1[1];              // Delay/Speed
-		v.things_vib_delay_ctr = v.things_vib_delay_reload; // Init counter
-		v.things_vib_state = 0;                             // Init state
-		v.whatever0 = 1;                                    // Enable Vib
-	}
-	// Check Instrument A0[5] for Arpeggio alternative? (L0B1A) - Also maps to 0xE67
-	else if (instA0[5] != 0) {
-		debug(DEBUG_LEVEL >= 2, "Driller V%d: Activating Arpeggio from InstA0[5]=%02X", voiceIndex, instA0[5]);
+
+	// Check instA0[5] for arpeggio (L0B1A -> L0E67)
+	// lda possibly_instrument_a0+5,y; beq L0B22
+	if (instA0[5] != 0) {
+		// L0E67: arpeggio setup
 		uint8_t arpData = instA0[5];
-		v.arpTableIndex = arpData & 0x0F;
-		v.arpSpeedHiNibble = (arpData & 0xF0) >> 4;
-		if (v.arpTableIndex >= NUM_ARPEGGIOS)
-			v.arpTableIndex = 0;
-		v.stuff_arp_counter = 0; // Reset counter on activation
-		v.stuff_arp_note_index = 0;
-		v.whatever1 = 1; // Enable Arp
-	}
-	// --- END MOVED EFFECT INITIALIZATION ---
-
-	// Check for note 0 = Key Off / Rest (0A70)
-	if (isRest) {
-		// Slide/Porta to last note? (0A75)
-		note = v.currentNoteSlideTarget; // Use last played note for slide target
-		v.currentNoteSlideTarget = 0;    // Clear slide target
-
-		if (note == 0) { // Still note 0, true rest
-			debug(DEBUG_LEVEL >= 2, "Driller V%d: Applying Rest", voiceIndex);
-			v.keyOn = false;           // Ensure gate is off for rest
-			goto WriteFinalControlReg; // Skip freq/ADSR/PW writes, just turn off gate
-		} else {
-			// It's a slide/porta to the previous note 'note'
-			debug(DEBUG_LEVEL >= 2, "Driller V%d: Applying Slide to Note %d", voiceIndex, note);
-			v.keyOn = true; // Keep Gate ON for slide
-			// DO NOT reset effect flags (whatever0/1/2) during slide? This needs verification.
-			// The original code structure implies they *are* reset before the pattern loop,
-			// and only FB/FC explicitly clear them again. Let's stick with the moved init block above for now.
-		}
-	} else {
-		// Store current note for slide target (0A88)
-		debug(DEBUG_LEVEL >= 2, "Driller V%d: Applying Note %d", voiceIndex, note);
-		v.currentNoteSlideTarget = note;
-		v.keyOn = true; // Key On for a normal note
+		v.arpTableIndex = arpData & 0x0F;                    // and #$0F -> ctrl1
+		v.arpSpeedHiNibble = (arpData & 0xF0) >> 4;         // and #$F0; lsr*4 -> stuff+5
+		v.stuff_arp_counter = 0;                             // sta stuff+6
+		v.whatever1 = 1;                                     // sta whatever+1
+		v.whatever0 = 0;                                     // sta whatever
+		return; // jmp voice_done
 	}
 
-	// Calculate Frequency (0A8C)
-	// ... (rest of frequency code is likely okay) ...
-	if (note >= 96)
-		note = 95; // Clamp note value
-	v.baseFreq = frq_lo[note] | (frq_hi[note] << 8);
+	// L0B22: Clear arpeggio flag (A=0 from beq)
+	v.whatever1 = 0;
 
-	// Store base frequency (0A8F - 0AA1)
-	v.stuff_freq_base = v.baseFreq;
-	v.stuff_freq_porta_vib = v.baseFreq;    // Initial freq includes effects
-	v.stuff_freq_hard_restart = v.baseFreq; // Store for hard restart
-
-	// Set initial frequency on SID
-	v.currentFreq = v.baseFreq;
-	SID_Write(sidOffset + 0, frq_lo[note]);
-	SID_Write(sidOffset + 1, frq_hi[note]);
-	debug(DEBUG_LEVEL >= 3, "Driller V%d: Set Freq = %d ($%04X)", voiceIndex, v.currentFreq, v.currentFreq);
-
-	// Set Waveform from Instrument (0AA7)
-	v.waveform = instA0[6]; // possibly_instrument_a0+6,y
-	debug(DEBUG_LEVEL >= 3, "Driller V%d: Set Waveform = $%02X", voiceIndex, v.waveform);
-	// KeyOn is set above based on note value/slide
-
-	// Check if hard restart should start (Instrument A0[7] & 0x01) (0xCC1)
-	// ... (hard restart check is likely okay) ...
-	if (instA0[7] & 0x01) {
-		debug(DEBUG_LEVEL >= 2, "Driller V%d: Activating Hard Restart", voiceIndex);
-		v.hardRestartActive = true;
-		v.hardRestartDelay = 0; // Reset counters for hard restart
-		v.hardRestartCounter = 0;
-		v.hardRestartValue = instA1[5]; // possibly_instrument_a1+5,y (0x103D)
-	} else {
-		v.hardRestartActive = false;
+	// Check instA1[0] for vibrato (L0B25 -> L0E89)
+	// lda possibly_instrument_a1,y; beq L0B2D
+	if (instA1[0] != 0) {
+		// L0E89: vibrato setup
+		v.things_vib_depth = instA1[0];                      // sta things+1
+		v.things_vib_delay_reload = instA1[1];               // sta things+2
+		v.things_vib_delay_ctr = v.things_vib_delay_reload;  // sta things+3
+		v.things_vib_state = 0;                              // sta things
+		v.whatever1 = 0;                                     // sta whatever+1
+		v.whatever0 = 1;                                     // sta whatever
+		return; // jmp voice_done
 	}
 
-	// Set ADSR (0xAB6)
-	// Use values set by FA command (stored in v.attackDecay, v.sustainRelease)
-	// SID_Write(sidOffset + 5, v.attackDecay); // Use state variable set by FA
-	// SID_Write(sidOffset + 6, v.sustainRelease); // Use state variable set by FA
-	// debug(DEBUG_LEVEL >= 3, "Driller V%d: Set ADSR = $%02X / $%02X", voiceIndex, v.attackDecay, v.sustainRelease);
-	// In applyNote, right before writing ADSR to SID:
-
-	// Set ADSR (0xAB6)
-	writeAD = v.attackDecay;
-	writeSR = v.sustainRelease;
-
-	// --- TEMPORARY TEST: Override ADSR for Inst 1 and 4 ---
-	currentInstNum = v.instrumentIndex / 8;
-	if (currentInstNum == 1 || currentInstNum == 4) {
-		debug(1, "Driller V%d: !!! ADSR OVERRIDE TEST !!! Inst %d -> Using AD=A, SR=F", voiceIndex, currentInstNum);
-		writeAD = 0xA0; // Attack 10, Decay 0
-		writeSR = 0x0F; // Sustain 15, Release 0 (Use F for sustain)
-						// Note: The SR register is Sustain Hi Nibble / Release Lo Nibble
-						// So 0x0F should be S=0, R=15. Let's try 0xF0 (S=15, R=0) for sustain.
-		writeSR = 0xF0;
-	}
-	// --- END TEMPORARY TEST ---
-
-	// Use values set by FA command (stored in v.attackDecay, v.sustainRelease) OR the override
-	SID_Write(sidOffset + 5, writeAD); // Use potentially overridden value
-	SID_Write(sidOffset + 6, writeSR); // Use potentially overridden value
-	debug(DEBUG_LEVEL >= 3, "Driller V%d: Set ADSR = $%02X / $%02X", voiceIndex, writeAD, writeSR);
-
-	// --- Fix 2: Correct Pulse Width Setting ---
-	// Set Pulse Width (0xAC2)
-	// Use voice1_something_else[0] and voice1_something_else[2] based on disassembly writes L0AC2/L0AC8
-	// These were set by FA command based on instA0[0] (ADSR byte)
-	pwLoByte = v.something_else[0];          // From AD hi nibble
-	pwHiNibble = v.something_else[2] & 0x0F; // From SR lo nibble, masked to 4 bits
-
-	// Combine for 12-bit PW
-	newPulseWidth = pwLoByte | (pwHiNibble << 8);
-
-	v.pulseWidth = newPulseWidth;                         // Update state variable *before* writing for LFO consistency
-	SID_Write(sidOffset + 2, v.pulseWidth & 0xFF);        // Write Lo byte (0xAC5)
-	SID_Write(sidOffset + 3, (v.pulseWidth >> 8) & 0x0F); // Write Hi nibble (0xACB)
-	debug(DEBUG_LEVEL >= 3, "Driller V%d: Set PW = %d ($%03X) based on something_else[0/2] (AD/SR nibbles)", voiceIndex, v.pulseWidth, v.pulseWidth);
-	// --- End Fix 2 ---
-
-	// Effect initialization was moved higher up
-
-WriteFinalControlReg: // Target for true rests
-					  // --- Final SID Write for Gate/Waveform ---
-					  // ... (final control reg write is likely okay) ...
-	uint8_t ctrl = v.waveform;
-	if (v.keyOn) {
-		ctrl |= 0x01; // Gate On
-	} else {
-		ctrl &= 0xFE; // Gate Off
-	}
-	// Apply sync/ring mod from waveform byte if included
-	SID_Write(sidOffset + 4, ctrl);
-	debug(DEBUG_LEVEL >= 2, "Driller V%d: Final Control Reg Write = $%02X (Wave=$%02X, Gate=%d)", voiceIndex, ctrl, v.waveform, v.keyOn);
+	// L0B2D: Clear vibrato flag (A=0 from beq)
+	v.whatever0 = 0;
+	// jmp voice_done
 }
 
 // --- Continuous Effect Application (Vibrato, Porta, Arp) ---
@@ -1046,155 +825,150 @@ void DrillerSIDPlayer::applyContinuousEffects(VoiceState &v, int sidOffset, cons
 	uint16_t freq = v.stuff_freq_porta_vib; // Start with base freq + porta/vib from previous step
 	bool freqDirty = false;                 // Track if frequency needs writing
 
-	// Instrument A0[4] based frequency LFO (L0B33) - PW LFO?
+	// PW LFO (L0B33-L0B82) - instA0[4] = modulation speed (stored in control1)
 	uint8_t lfoSpeed = instA0[4];
 	if (lfoSpeed != 0) {
-		// This LFO modifies 'something_else', which we mapped to PW registers based on FA command logic?
-		// Or does it modify PW directly based on current PW? Let's assume it modifies current PW.
-		uint16_t currentPW = v.pulseWidth;   // Use the state variable
-		if (v.whatever2_vibDirToggle == 0) { // Direction toggle (0B3B)
-			currentPW += lfoSpeed;
-			if (currentPW > 0x0E00 || currentPW < lfoSpeed) { // Check wrap around too
-				currentPW = 0x0E00;                           // Clamp
-				v.whatever2_vibDirToggle = 1;                 // Change direction (0B5D)
+		// Operates on something_else[0] (lo byte) and something_else[2] (hi nibble)
+		if (v.whatever2_vibDirToggle == 0) {
+			// Add phase (L0B40-L0B5D): clc; adc control1 on lo; adc #0 on hi
+			uint16_t sum = (uint16_t)v.something_else[0] + lfoSpeed;
+			v.something_else[0] = sum & 0xFF;
+			v.something_else[2] = v.something_else[2] + (sum >> 8);
+			SID_Write(sidOffset + 2, v.something_else[0]); // $D402
+			SID_Write(sidOffset + 3, v.something_else[2]); // $D403
+			// clc; cmp #$0E - check hi byte >= 0x0E (L0B59)
+			if (v.something_else[2] >= 0x0E) {
+				v.whatever2_vibDirToggle = 1; // inc whatever2 (L0B5D)
 			}
 		} else {
-			// Need signed arithmetic potentially if currentPW could go below lfoSpeed
-			if (currentPW >= lfoSpeed) {
-				currentPW -= lfoSpeed;
-			} else {
-				currentPW = 0;
-			}
-			if (currentPW < 0x0800) {         // Limit check (0B7B)
-				currentPW = 0x0800;           // Clamp
-				v.whatever2_vibDirToggle = 0; // Change direction (0B7F)
+			// Subtract phase (L0B62-L0B7F): sec; sbc control1 on lo; sbc #0 on hi
+			uint16_t diff = (uint16_t)v.something_else[0] + 0x100 - lfoSpeed;
+			v.something_else[0] = diff & 0xFF;
+			if (diff < 0x100) // borrow
+				v.something_else[2]--;
+			SID_Write(sidOffset + 2, v.something_else[0]); // $D402
+			SID_Write(sidOffset + 3, v.something_else[2]); // $D403
+			// clc; cmp #$08 - check hi byte < 0x08 (L0B7B)
+			if (v.something_else[2] < 0x08) {
+				v.whatever2_vibDirToggle = 0; // dec whatever2 (L0B7F)
 			}
 		}
-		currentPW &= 0x0FFF;
-		if (v.pulseWidth != currentPW) {
-			v.pulseWidth = currentPW;
-			SID_Write(sidOffset + 2, v.pulseWidth & 0xFF);        // Write PW Lo (0B4A / 0B6C)
-			SID_Write(sidOffset + 3, (v.pulseWidth >> 8) & 0x0F); // Write PW Hi (0B55 / 0B77)
-			debug(1, "Driller 1: PW LFO Updated PW = %d ($%03X)", v.pulseWidth, v.pulseWidth);
-		}
+		v.pulseWidth = v.something_else[0] | (v.something_else[2] << 8);
 	}
 
 	// Arpeggio (L0B82) - Check 'whatever1' flag
 	if (v.whatever1) {
-		const uint8_t *arpTable = &arpeggio_data[0]; // Only one table defined
-
-		// Speed calculation from 0B98 - checks counter against 'stuff+5' (arpSpeedHiNibble)
-		uint8_t speed = v.arpSpeedHiNibble; // This was set from InstA1[4] or InstA0[5] hi nibble
-		if (speed == 0)
-			speed = 1; // Avoid division by zero or infinite loop
-
-		v.stuff_arp_counter++;
-		if (v.stuff_arp_counter >= speed) {
-			v.stuff_arp_counter = 0;
-			// Advance arpeggio note index (0BA0 / 0BBA)
-			v.stuff_arp_note_index = (v.stuff_arp_note_index + 1) % 3; // Cycle 0, 1, 2
-			debug(1, "Driller 1: Arp Step -> Note Index %d", v.stuff_arp_note_index);
+		// Assembly: single counter (stuff+6) cycles 0..speed-1, used directly as arp table index
+		// lda stuff+6; cmp stuff+5; bne L0BA5; lda #0; sta stuff+6
+		uint8_t speed = v.arpSpeedHiNibble; // stuff+5: set from instA0[5] hi nibble
+		if (v.stuff_arp_counter == speed) {
+			v.stuff_arp_counter = 0; // Reset when counter == speed (L0BA0)
 		}
 
-		// Calculate arpeggio note (0BA6)
-		uint8_t baseNote = v.currentNote; // Note from pattern
-		if (baseNote > 0 && baseNote < 96) {
-			uint8_t arpOffset = arpTable[v.stuff_arp_note_index]; // Offset from table (0BAA)
+		// tay; lda stuff+3; clc; adc arpeggio_0,y (L0BA5-L0BAD)
+		uint8_t baseNote = v.currentNote;
+		if (baseNote > 0 && baseNote < 96 && v.stuff_arp_counter < 3) {
+			uint8_t arpOffset = arpeggio_data[v.stuff_arp_counter]; // Counter IS the table index
 			uint8_t arpNote = baseNote + arpOffset;
 			if (arpNote >= 96)
-				arpNote = 95; // Clamp
+				arpNote = 95;
 
-			// Set frequency based on arpeggio note
 			freq = frq_lo[arpNote] | (frq_hi[arpNote] << 8);
-			freqDirty = true;
-			// Arpeggio overrides other frequency effects for this frame
-			goto WriteFrequency;
-		} else {
-			// If base note is invalid (e.g., 0), maybe use baseFreq? Or just skip arp?
-			// Fall through to allow other effects if arp base note is invalid
+			SID_Write(sidOffset + 0, frq_lo[arpNote]); // sta $D400 (L0BB1)
+			SID_Write(sidOffset + 1, frq_hi[arpNote]); // sta $D401 (L0BB7)
+			v.currentFreq = freq;
 		}
+
+		v.stuff_arp_counter++; // inc stuff+6 (L0BBA)
+		// jmp voice_done - arpeggio skips vibrato/porta
+		return;
 	}
 
 	// Vibrato (L0BC0 / L0BC8) - Check 'whatever0' flag
+	// Assembly applies frequency modification EVERY frame.
+	// The timer (things+3) only controls when the direction state advances.
 	if (v.whatever0) {
-		if (v.things_vib_delay_reload > 0) { // Only run if delay is set
+		int state = v.things_vib_state;
+		uint8_t freqLo = v.stuff_freq_porta_vib & 0xFF;
+		uint8_t freqHi = (v.stuff_freq_porta_vib >> 8) & 0xFF;
 
-			// --- Fix 3a: Simplify Counter Logic ---
-			v.things_vib_delay_ctr--;          // Decrement first
-			if (v.things_vib_delay_ctr == 0) { // Check if zero AFTER decrementing
-											   // --- End Fix 3a ---
+		// Apply depth based on state (L0C06, L0C2F, L0BD1)
+		// States 0, 3, 4: subtract (down). States 1, 2: add (up).
+		// State 0: L0C06 (beq). States 1,2: L0C2F (cmp #3; bcc). States 3,4: fall through.
+		if (state == 1 || state == 2) {
+			// Add (L0C2F): clc; lda stuff,x; adc things+1,x
+			uint16_t sum = (uint16_t)freqLo + (v.things_vib_depth & 0xFF);
+			freqLo = sum & 0xFF;
+			freqHi = freqHi + (sum >> 8);
+		} else {
+			// Subtract (L0C06/L0BD1): sec; lda stuff,x; sbc things+1,x
+			uint16_t diff = (uint16_t)freqLo + 0x100 - (v.things_vib_depth & 0xFF);
+			freqLo = diff & 0xFF;
+			if (diff < 0x100) // borrow occurred
+				freqHi--;
+		}
 
-				v.things_vib_delay_ctr = v.things_vib_delay_reload; // Reload counter
+		v.stuff_freq_porta_vib = (uint16_t)freqLo | ((uint16_t)freqHi << 8);
+		freq = v.stuff_freq_porta_vib;
+		freqDirty = true;
 
-				int state = v.things_vib_state;
-				int32_t current_freq_signed = v.stuff_freq_porta_vib; // Apply vibrato based on current freq (inc. porta)
-
-				// Use level 1 for this crucial debug message
-				debug(1, "Driller V1: Vib Step - State %d, Depth %d", state, (int16_t)v.things_vib_depth);
-
-				// Apply depth based on state (L0C06, L0C2F, L0BD1)
-				// ... (rest of vibrato logic is likely okay) ...
-				// States 0, 2, 3 are down; State 1, 4 are up
-				if (state == 1 || state == 4) { // Up sweep
-					current_freq_signed += v.things_vib_depth;
-				} else { // Down sweep (0, 2, 3)
-					current_freq_signed -= v.things_vib_depth;
-				}
-
-				// Clamp frequency after modification
-				if (current_freq_signed < 0)
-					current_freq_signed = 0;
-				if (current_freq_signed > 0xFFFF)
-					current_freq_signed = 0xFFFF;
-				v.stuff_freq_porta_vib = (uint16_t)current_freq_signed; // Store result for next frame's base
-				freq = v.stuff_freq_porta_vib;                          // Use vibrato-modified frequency for this frame
-				freqDirty = true;
-
-				// Advance state (0BF4 / 0C29 / 0C52)
-				v.things_vib_state++;
-				if (v.things_vib_state >= 5) { // Cycle states 0..4 (0BFA)
-					v.things_vib_state = 1;    // Loop back to state 1 (upward sweep) (0BFE) - Correct based on diss.
-				}
-				// Use level 1 for this crucial debug message
-				debug(1, "Driller V1: Vib Freq Updated = %d, Next State %d", freq, v.things_vib_state);
+		// Decrement timer, advance state only when expired (dec things+3; bne done)
+		v.things_vib_delay_ctr--;
+		if (v.things_vib_delay_ctr == 0) {
+			v.things_vib_delay_ctr = v.things_vib_delay_reload;
+			v.things_vib_state++;
+			if (v.things_vib_state >= 5) { // cmp #$05; bcc
+				v.things_vib_state = 1;    // Reset to state 1 (0BFE)
 			}
 		}
 	} // end if(v.whatever0)
 
 	// Portamento (L0C5A) - Check 'whatever2' flag
-	if (v.whatever2) { // Note: 'else if' removed, allow porta+vib? Keep 'else if'.
-		// Calculate porta speed if not already done (or if param changed?)
-		if (v.portaSpeed == 0) {            // Calculate only once per porta command
-			int16_t speed = v.portaStepRaw; // Raw value from FB/FC command (e.g., 0x01 or 0x80)
-			// Disassembly L0C7B (type 1) / L0CA6 (type 2) / L0C96 (type 3) / L0C6B (type 4)
-			// Types 1 & 3 are down, 2 & 4 are up. Speed seems absolute value?
-			// Let's assume portaStepRaw is the step magnitude.
-			if (v.whatever2 == 1 || v.whatever2 == 3) { // Down
-				v.portaSpeed = -speed;                  // Ensure negative for down
-			} else {                                    // Up (2 or 4)
-				v.portaSpeed = speed;                   // Ensure positive for up
-			}
-			debug(1, "Driller 1: Porta Recalc Speed = %d (Raw=%d, Type=%d)", v.portaSpeed, v.portaStepRaw, v.whatever2);
+	// 4 distinct types matching assembly:
+	// Type 1 (L0C7B): CLC+SBC on lo byte (slide down, borrow to hi)
+	// Type 2 (L0CA6): CLC+ADC on lo byte (slide up, carry to hi)
+	// Type 3 (L0C96): SEC+SBC on hi byte only (fast slide down)
+	// Type >= 4 (L0C6B): CLC+ADC on hi byte only (fast slide up)
+	if (v.whatever2) {
+		uint8_t freqLo = v.stuff_freq_porta_vib & 0xFF;       // stuff[0]
+		uint8_t freqHi = (v.stuff_freq_porta_vib >> 8) & 0xFF; // stuff[4]
+		uint8_t speed = v.portaStepRaw & 0xFF;                 // voice1_something
+
+		if (v.whatever2 == 1) {
+			// Type 1 (L0C7B): clc; sbc = subtract (speed+1) from lo, borrow to hi
+			uint16_t diff = (uint16_t)freqLo - speed; // CLC means borrow, so effectively -(speed+1)
+			freqLo = (diff - 1) & 0xFF; // CLC+SBC = subtract with extra borrow
+			if ((diff - 1) > 0xFF) freqHi--; // Propagate borrow
+			SID_Write(sidOffset + 0, freqLo);
+			SID_Write(sidOffset + 1, freqHi);
+		} else if (v.whatever2 == 2) {
+			// Type 2 (L0CA6): clc; adc on lo, carry to hi
+			uint16_t sum = (uint16_t)freqLo + speed;
+			freqLo = sum & 0xFF;
+			freqHi = freqHi + (sum >> 8);
+			SID_Write(sidOffset + 0, freqLo);
+			SID_Write(sidOffset + 1, freqHi);
+		} else if (v.whatever2 == 3) {
+			// Type 3 (L0C96): sec; sbc on hi byte only (fast slide down)
+			freqHi = freqHi - speed;
+			SID_Write(sidOffset + 1, freqHi);
+		} else {
+			// Type >= 4 (L0C6B): clc; adc on hi byte only (fast slide up)
+			freqHi = freqHi + speed;
+			SID_Write(sidOffset + 1, freqHi);
 		}
 
-		// Apply portamento step
-		int32_t tempFreqSigned = v.stuff_freq_porta_vib; // Apply to current frequency
-		tempFreqSigned += v.portaSpeed;                  // Add signed speed
-
-		// Clamp frequency
-		if (tempFreqSigned > 0xFFFF)
-			tempFreqSigned = 0xFFFF;
-		if (tempFreqSigned < 0)
-			tempFreqSigned = 0;
-
-		v.stuff_freq_porta_vib = (uint16_t)tempFreqSigned; // Store result for next frame
-		freq = v.stuff_freq_porta_vib;                     // Use the porta-modified frequency for this frame
-		freqDirty = true;
-		debug(DEBUG_LEVEL >= 3, "Driller: Porta Step -> Freq = %d", freq);
+		v.stuff_freq_porta_vib = (uint16_t)freqLo | ((uint16_t)freqHi << 8);
+		v.currentFreq = v.stuff_freq_porta_vib;
 	}
 
-WriteFrequency:
-	// Write final frequency to SID if it was changed by effects
+	// After porta, check for hard restart (L0CBE)
+	// lda instA0[7]; and #$01; beq voice_done; jmp L1005
+	if (instA0[7] & 0x01) {
+		applyHardRestart(v, sidOffset, instA0, instA1);
+	}
+
+	// Write final frequency if modified by vibrato (arp and porta write directly)
 	if (freqDirty && v.currentFreq != freq) {
 		v.currentFreq = freq;
 		SID_Write(sidOffset + 0, freq & 0xFF);

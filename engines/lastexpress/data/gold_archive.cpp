@@ -118,7 +118,7 @@ HPF *GoldArchiveManager::openHPF(const char *filename) {
 
 	Common::strcpy_s(result->name, filename);
 	int64 archiveSize = archiveItem.get()->createReadStream()->size();
-	result->size = (uint16)((archiveSize / PAGE_SIZE) + ((archiveSize % PAGE_SIZE) > 0 ? 1 : 0));
+	result->size = (uint16)((archiveSize / MEM_PAGE_SIZE) + ((archiveSize % MEM_PAGE_SIZE) > 0 ? 1 : 0));
 	result->status |= kHPFFileIsLoaded;
 	result->currentPos = 0;
 	result->archiveName = archiveItem.get()->getPathInArchive().toString();
@@ -144,8 +144,8 @@ void GoldArchiveManager::readHPF(HPF *archive, void *dstBuf, uint32 size) {
 
 			Common::SeekableReadStream *readStream = archivePtr->createReadStream();
 
-			readStream->seek((archive->currentPos + archive->offset) * PAGE_SIZE, SEEK_SET);
-			readStream->read(dstBuf, effSize * PAGE_SIZE);
+			readStream->seek((archive->currentPos + archive->offset) * MEM_PAGE_SIZE, SEEK_SET);
+			readStream->read(dstBuf, effSize * MEM_PAGE_SIZE);
 
 			delete readStream;
 
@@ -165,7 +165,7 @@ int GoldArchiveManager::loadBG(const char *filename) {
 	tbm.width = _engine->getGraphicsManager()->_renderBox1.width;
 	tbm.height = _engine->getGraphicsManager()->_renderBox1.height;
 
-	PixMap *bgSurface = _engine->getGraphicsManager()->_backgroundBuffer;
+	PixMap *bgSurface = _engine->getGraphicsManager()->_frontBuffer;
 
 	if (_engine->getLogicManager()->_doubleClickFlag &&
 		(_engine->mouseHasLeftClicked() || _engine->mouseHasRightClicked()) &&
@@ -193,17 +193,17 @@ int GoldArchiveManager::loadBG(const char *filename) {
 		// All these fields are 32-bit LE.
 
 		Image::JPEGDecoder *dec = new Image::JPEGDecoder();
-		byte *backgroundCompBuffer = (byte *)malloc(archive->size * PAGE_SIZE);
+		byte *backgroundCompBuffer = (byte *)malloc(archive->size * MEM_PAGE_SIZE);
 		assert(backgroundCompBuffer);
 		readHPF(archive, backgroundCompBuffer, archive->size);
-		Common::SeekableReadStream *seqDataStream = new Common::MemoryReadStream(backgroundCompBuffer, PAGE_SIZE * archive->size, DisposeAfterUse::YES);
+		Common::SeekableReadStream *seqDataStream = new Common::MemoryReadStream(backgroundCompBuffer, MEM_PAGE_SIZE * archive->size, DisposeAfterUse::YES);
 
 		_engine->getGraphicsManager()->_renderBox1.x = seqDataStream->readUint32LE();
 		_engine->getGraphicsManager()->_renderBox1.y = seqDataStream->readUint32LE();
 		_engine->getGraphicsManager()->_renderBox1.width = seqDataStream->readUint32LE();
 		_engine->getGraphicsManager()->_renderBox1.height = seqDataStream->readUint32LE();
 
-		dec->setOutputPixelFormat(Graphics::PixelFormat(2, 5, 5, 5, 0, 10, 5, 0, 0));
+		dec->setOutputPixelFormat(Graphics::PixelFormat(2, 5, 6, 5, 0, 11, 5, 0, 0));
 		const Graphics::Surface *decodedSurf = dec->decodeFrame(*seqDataStream);
 
 		memcpy(bgSurface, decodedSurf->getPixels(), _engine->getGraphicsManager()->_renderBox1.width * _engine->getGraphicsManager()->_renderBox1.height * sizeof(PixMap));
@@ -227,14 +227,14 @@ int GoldArchiveManager::loadBG(const char *filename) {
 			}
 
 			if (_engine->getGraphicsManager()->_renderBox1.x) {
-				_engine->getGraphicsManager()->clear(_engine->getGraphicsManager()->_backgroundBuffer, 0, 0, _engine->getGraphicsManager()->_renderBox1.x, 480);
-				_engine->getGraphicsManager()->clear(_engine->getGraphicsManager()->_backgroundBuffer, 640 - _engine->getGraphicsManager()->_renderBox1.x, 0, _engine->getGraphicsManager()->_renderBox1.x, 480);
+				_engine->getGraphicsManager()->clear(_engine->getGraphicsManager()->_frontBuffer, 0, 0, _engine->getGraphicsManager()->_renderBox1.x, 480);
+				_engine->getGraphicsManager()->clear(_engine->getGraphicsManager()->_frontBuffer, 640 - _engine->getGraphicsManager()->_renderBox1.x, 0, _engine->getGraphicsManager()->_renderBox1.x, 480);
 			}
 
 			if (_engine->getGraphicsManager()->_renderBox1.y) {
-				_engine->getGraphicsManager()->clear(_engine->getGraphicsManager()->_backgroundBuffer, _engine->getGraphicsManager()->_renderBox1.x, 0, _engine->getGraphicsManager()->_renderBox1.width, _engine->getGraphicsManager()->_renderBox1.y);
+				_engine->getGraphicsManager()->clear(_engine->getGraphicsManager()->_frontBuffer, _engine->getGraphicsManager()->_renderBox1.x, 0, _engine->getGraphicsManager()->_renderBox1.width, _engine->getGraphicsManager()->_renderBox1.y);
 				_engine->getGraphicsManager()->clear(
-					_engine->getGraphicsManager()->_backgroundBuffer,
+					_engine->getGraphicsManager()->_frontBuffer,
 					_engine->getGraphicsManager()->_renderBox1.x,
 					480 - _engine->getGraphicsManager()->_renderBox1.y,
 					_engine->getGraphicsManager()->_renderBox1.width,
@@ -248,7 +248,7 @@ int GoldArchiveManager::loadBG(const char *filename) {
 				return -1;
 
 			} else {
-				_engine->getGraphicsManager()->copy(_engine->getGraphicsManager()->_backgroundBuffer, _engine->getGraphicsManager()->_screenBuffer, 0, 0, 640, 480);
+				_engine->getGraphicsManager()->copy(_engine->getGraphicsManager()->_frontBuffer, _engine->getGraphicsManager()->_backBuffer, 0, 0, 640, 480);
 
 				if (tbm.x      != _engine->getGraphicsManager()->_renderBox1.x     ||
 					tbm.y      != _engine->getGraphicsManager()->_renderBox1.y     ||
@@ -279,9 +279,9 @@ int GoldArchiveManager::loadBG(const char *filename) {
 			}
 		}
 	} else {
-		memset(_engine->getGraphicsManager()->_screenBuffer, 0, (640 * 480 * sizeof(PixMap)));
+		memset(_engine->getGraphicsManager()->_backBuffer, 0, (640 * 480 * sizeof(PixMap)));
 
-		_engine->getGraphicsManager()->copy(_engine->getGraphicsManager()->_screenBuffer, _engine->getGraphicsManager()->_backgroundBuffer, 0, 0, 640, 480);
+		_engine->getGraphicsManager()->copy(_engine->getGraphicsManager()->_backBuffer, _engine->getGraphicsManager()->_frontBuffer, 0, 0, 640, 480);
 		_engine->getGraphicsManager()->_renderBox1.x = 0;
 		_engine->getGraphicsManager()->_renderBox1.y = 0;
 		_engine->getGraphicsManager()->_renderBox1.width = 640;

@@ -237,8 +237,8 @@ void SoundManager::ambientAI(int id) {
 	byte numLoops[9] = {0, 4, 2, 2, 2, 2, 2, 0, 0};
 
 	int positions[8] = {
-		kPosition_8200, kPosition_7500, kPosition_6470, kPosition_5790,
-		kPosition_4840, kPosition_4070, kPosition_3050, kPosition_2740
+		8200, 7500, 6470, 5790,
+		4840, 4070, 3050, 2740
 	};
 
 	char newAmbientSoundName[80];
@@ -267,7 +267,7 @@ void SoundManager::ambientAI(int id) {
 
 					if (_engine->getLogicManager()->inComp(kCharacterCath, getCharacter(kCharacterCath).characterPosition.car, positions[pos])) {
 						numLoops[0] = 1;
-						soundId = _engine->getLogicManager()->_doors[objNum].status == kObjectLocation2 ? 6 : 1;
+						soundId = _engine->getLogicManager()->_doors[objNum].status == 2 ? 6 : 1;
 					}
 
 					objNum++;
@@ -381,6 +381,7 @@ void SoundManager::soundThread() {
 			if (loopedPlaying) {
 				ambientAI(kAmbientLooping);
 			} else if (_soundAmbientFadeTime && getSoundDriver30HzCounter() >= _soundAmbientFadeTime) {
+				assert(ambientSlot1);
 				ambientSlot1->setFade(_soundAmbientFadeLevel);
 				_soundAmbientFadeTime = 0;
 			}
@@ -516,6 +517,12 @@ void SoundManager::saveSoundInfo(CVCRFile *file) {
 			saveSlot->priority = j->_priority;
 			strncpy(saveSlot->name1, j->_name1, sizeof(saveSlot->name1));
 			strncpy(saveSlot->name2, j->_name2, sizeof(saveSlot->name2));
+
+			// I have verified that ANY possible name in here won't be longer than 12 characters,
+			// so it's safe to put this here, like Coverity asked to...
+			saveSlot->name1[15] = '\0';
+			saveSlot->name2[15] = '\0';
+
 			file->writeRLE(saveSlot, sizeof(SaveSlot), 1);
 		}
 	}

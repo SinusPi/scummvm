@@ -36,7 +36,7 @@ void Room917::preload() {
 void Room917::init() {
 	player_set_commands_allowed(false);
 	adv_kill_digi_between_rooms(false);
-	if (_G(flags)[V291]) {
+	if (_G(flags)[V291] != 1) {
 		digi_preload("950_s47", 950);
 		digi_preload("907r02", 950);
 		_roomStates_tt = series_stream("917zep01", 12, 256, -1);
@@ -72,13 +72,13 @@ void Room917::daemon() {
 		break;
 
 	case 3:
-		_G(flags)[V291] = true;
+		_G(flags)[V291] = 1;
 		adv_kill_digi_between_rooms(false);
 		digi_play_loop("950_s47", 3, 70, -1, 950);
 		digi_stop(1);
 		digi_stop(2);
 		digi_unload("907R02");
-		_G(game).new_room = 918;
+		_G(game).setRoom(918);
 		break;
 
 	case 11:
@@ -152,8 +152,7 @@ void Room917::daemon() {
 		digi_unload("950_S48b");
 		digi_unload("950_S48c");
 		digi_unload("950_S50");
-		_G(game).new_room = 493;
-		_G(game).new_section = 4;
+		_G(game).setRoom(493);
 		break;
 
 	default:

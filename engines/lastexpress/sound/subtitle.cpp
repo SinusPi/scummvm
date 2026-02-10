@@ -110,6 +110,10 @@ void Subtitle::load() {
 		_engine->getArchiveManager()->readHPF(archive, _engine->getSubtitleManager()->_subtitlesData, archive->size);
 		_engine->getArchiveManager()->closeHPF(archive);
 
+		for (int i = 0; i < (archive->size * MEM_PAGE_SIZE) / 2; i++) {
+			_engine->getSubtitleManager()->_subtitlesData[i] = READ_LE_UINT16(&_engine->getSubtitleManager()->_subtitlesData[i]);
+		}
+
 		if (_engine->getSubtitleManager()->_subtitlesData[0]) {
 			for (int i = 0; i < _engine->getSubtitleManager()->_subtitlesData[0]; i++) {
 				if (!_data[1])
@@ -184,36 +188,45 @@ SubtitleManager::~SubtitleManager() {
 void SubtitleManager::initSubtitles() {
 	HPF *archive = _engine->getArchiveManager()->openHPF("FONT.DAT");
 
-	byte *fontData = (byte *)malloc(PAGE_SIZE * archive->size);
-
-	if (archive && fontData) {
-		_engine->getArchiveManager()->readHPF(archive, fontData, archive->size);
-		_engine->getArchiveManager()->closeHPF(archive);
-
-		Common::MemoryReadStream *fontStream = new Common::MemoryReadStream(fontData, PAGE_SIZE * archive->size, DisposeAfterUse::YES);
-
-		for (int i = 0; i < 16; i++) {
-			_font->palette[i] = fontStream->readUint16LE();
+	if (archive) {
+		if (_font->fontData) {
+			free(_font->fontData);
+			_font->fontData = nullptr;
 		}
 
-		for (int i = 0; i < 256; i++) {
-			_font->charMap[i] = fontStream->readByte();
+		byte *fontData = (byte *)malloc(MEM_PAGE_SIZE * archive->size);
+
+		if (fontData) {
+			_engine->getArchiveManager()->readHPF(archive, fontData, archive->size);
+			_engine->getArchiveManager()->closeHPF(archive);
+
+			Common::MemoryReadStream *fontStream = new Common::MemoryReadStream(fontData, MEM_PAGE_SIZE * archive->size, DisposeAfterUse::YES);
+
+			for (int i = 0; i < 16; i++) {
+				_font->palette[i] = fontStream->readUint16LE();
+			}
+
+			for (int i = 0; i < 256; i++) {
+				_font->charMap[i] = fontStream->readByte();
+			}
+
+			for (int i = 0; i < 256; i++) {
+				_font->charKerning[i] = fontStream->readByte();
+			}
+
+			uint32 sizeOfData = MEM_PAGE_SIZE * archive->size - (16 * sizeof(uint16) + 256 + 256);
+			_font->fontData = (byte *)malloc(sizeOfData);
+
+			assert(_font->fontData);
+
+			for (uint i = 0; !fontStream->eos() && i < sizeOfData; i++) {
+				_font->fontData[i] = fontStream->readByte();
+			}
+
+			delete fontStream;
+		} else {
+			_font->fontData = nullptr;
 		}
-
-		for (int i = 0; i < 256; i++) {
-			_font->charKerning[i] = fontStream->readByte();
-		}
-
-		uint32 sizeOfData = PAGE_SIZE * archive->size - (16 * sizeof(uint16) + 256 + 256);
-		_font->fontData = (byte *)malloc(sizeOfData);
-
-		assert(_font->fontData);
-
-		for (uint i = 0; !fontStream->eos() && i < sizeOfData; i++) {
-			_font->fontData[i] = fontStream->readByte();
-		}
-
-		delete fontStream;
 	} else {
 		_font->fontData = nullptr;
 	}

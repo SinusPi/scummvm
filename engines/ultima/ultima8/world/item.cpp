@@ -628,11 +628,10 @@ bool Item::isOnScreen() const {
 	if (!game_map)
 		return false;
 
-	Rect game_map_dims;
 	int32 screenx = -1;
 	int32 screeny = -1;
 	game_map->GetLocationOfItem(_objId, screenx, screeny);
-	game_map->GetDims(game_map_dims);
+	Common::Rect32 game_map_dims = game_map->getDims();
 	const Shape *shape = getShapeObject();
 	if (!shape)
 		return false;
@@ -654,11 +653,10 @@ bool Item::isPartlyOnScreen() const {
 	if (!game_map)
 		return false;
 
-	Rect game_map_dims;
 	int32 screenx = -1;
 	int32 screeny = -1;
 	game_map->GetLocationOfItem(_objId, screenx, screeny);
-	game_map->GetDims(game_map_dims);
+	Common::Rect32 game_map_dims = game_map->getDims();
 	const Shape *shape = getShapeObject();
 	if (!shape)
 		return false;
@@ -743,7 +741,7 @@ int Item::getRange(const Item &item2, bool checkz) const {
 int Item::getRangeIfVisible(const Item &item2) const {
 	World *world = World::get_instance();
 	CurrentMap *map = world->getCurrentMap();
-	Std::list<CurrentMap::SweepItem> hitItems;
+	Common::List<CurrentMap::SweepItem> hitItems;
 
 	Point3 start = getCentre();
 	Point3 end = item2.getCentre();
@@ -1062,7 +1060,7 @@ int32 Item::collideMove(int32 dx, int32 dy, int32 dz, bool teleport, bool force,
 	getFootpadWorld(dims[0], dims[1], dims[2]);
 
 	// Do the sweep test
-	Std::list<CurrentMap::SweepItem> collisions;
+	Common::List<CurrentMap::SweepItem> collisions;
 	map->sweepTest(start, end, dims, getShapeInfo()->_flags, _objId, false, &collisions);
 
 	// Ok, now to work out what to do
@@ -1137,8 +1135,8 @@ int32 Item::collideMove(int32 dx, int32 dy, int32 dz, bool teleport, bool force,
 		// if not, need to do 'stuff'
 		// We don't care about items hitting us at the start
 		if (!force) {
-			Std::list<CurrentMap::SweepItem>::iterator it;
-			for (it = collisions.begin(); it != collisions.end(); it++) {
+			Common::List<CurrentMap::SweepItem>::iterator it;
+			for (it = collisions.begin(); it != collisions.end(); ++it) {
 				if (it->_blocking && !it->_touching) {
 					if (hititem)
 						*hititem = it->_item;
@@ -1456,7 +1454,7 @@ uint16 Item::fireDistance(const Item *other, Direction dir, int16 xoff, int16 yo
 			const Point3 end = oc;
 			const int32 dims[3] = {2, 2, 2};
 
-			Std::list<CurrentMap::SweepItem> collisions;
+			Common::List<CurrentMap::SweepItem> collisions;
 			cm->sweepTest(start, end, dims, ShapeInfo::SI_SOLID,
 						   _objId, true, &collisions);
 			for (const auto &collision : collisions) {
@@ -2032,7 +2030,7 @@ void Item::clearGump() {
 	_flags &= ~FLG_GUMP_OPEN;
 }
 
-ProcId Item::bark(const Std::string &msg) {
+ProcId Item::bark(const Common::String &msg) {
 	closeBark();
 
 	uint32 shapenum = getShape();
@@ -2411,7 +2409,7 @@ int Item::getThrowRange() const {
 }
 
 static bool checkLineOfSightCollisions(
-	const Std::list<CurrentMap::SweepItem> &collisions,
+	const Common::List<CurrentMap::SweepItem> &collisions,
 	bool usingAlternatePos, ObjId item, ObjId other) {
 	int32 other_hit_time = 0x4000;
 	int32 blocked_time = 0x4000;
@@ -2483,8 +2481,7 @@ bool Item::canReach(const Item *other, int range,
 	if (otherZ > pt1.z && otherZ < pt1.z + thisZd)
 		start.z = end.z; // bottom of other between bottom and top of this
 
-	Std::list<CurrentMap::SweepItem> collisions;
-	Std::list<CurrentMap::SweepItem>::iterator it;
+	Common::List<CurrentMap::SweepItem> collisions;
 	World *world = World::get_instance();
 	CurrentMap *map = world->getCurrentMap();
 	map->sweepTest(start, end, dims, ShapeInfo::SI_SOLID,
@@ -3628,7 +3625,7 @@ uint32 Item::I_legalMoveToPoint(const uint8 *args, unsigned int argsize) {
 	// If there are blockers, do partial move unless abort_if_blocked is set.
 	//
 	int retval = 1;
-	Std::list<CurrentMap::SweepItem> collisions;
+	Common::List<CurrentMap::SweepItem> collisions;
 	Point3 start = item->getLocation();
 	Point3 end(x, y, z);
 	int32 dims[3];

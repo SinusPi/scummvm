@@ -22,10 +22,6 @@
 // Sorenson Video 1 Codec
 // Based off FFmpeg's SVQ1 decoder (written by Arpi and Nick Kurshev)
 
-#include "common/scummsys.h"
-
-#ifdef USE_SVQ1
-
 #include "image/codecs/svq1.h"
 #include "image/codecs/svq1_cb.h"
 #include "image/codecs/svq1_vlc.h"
@@ -51,11 +47,7 @@ SVQ1Decoder::SVQ1Decoder(uint16 width, uint16 height) {
 	debug(1, "SVQ1Decoder::SVQ1Decoder(width:%d, height:%d)", width, height);
 	_width = width;
 	_height = height;
-	_pixelFormat = g_system->getScreenFormat();
-
-	// Default to a 32bpp format, if in 8bpp mode
-	if (_pixelFormat.bytesPerPixel == 1)
-		_pixelFormat = Graphics::PixelFormat(4, 8, 8, 8, 8, 8, 16, 24, 0);
+	_pixelFormat = getDefaultYUVFormat();
 
 	_frameWidth = _frameHeight = 0;
 	_surface = 0;
@@ -810,5 +802,3 @@ bool SVQ1Decoder::svq1DecodeDeltaBlock(Common::BitStream32BEMSB *ss, byte *curre
 }
 
 } // End of namespace Image
-
-#endif

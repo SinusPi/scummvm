@@ -56,6 +56,9 @@ public:
 
 	typedef T value_type; /*!< Value type of the array. */
 
+	typedef value_type &reference;
+	typedef const value_type &const_reference;
+
 	typedef uint size_type; /*!< Size type of the array. */
 
 protected:
@@ -113,8 +116,6 @@ public:
 	 * Common::Array<int> myArray = {1, 7, 42};
 	 * @endcode
 	 * constructs an array with 3 elements whose values are 1, 7, and 42 respectively.
-	 * @note
-	 * This constructor is only available when C++11 support is enabled.
 	 */
 	Array(std::initializer_list<T> list) : _size(list.size()) {
 		allocCapacity(list.size());

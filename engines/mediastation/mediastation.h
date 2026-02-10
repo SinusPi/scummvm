@@ -34,19 +34,24 @@
 #include "common/util.h"
 #include "engines/engine.h"
 #include "engines/savestate.h"
-#include "graphics/screen.h"
 
+#include "mediastation/clients.h"
 #include "mediastation/detection.h"
 #include "mediastation/datafile.h"
 #include "mediastation/boot.h"
 #include "mediastation/context.h"
-#include "mediastation/asset.h"
+#include "mediastation/actor.h"
 #include "mediastation/cursors.h"
+#include "mediastation/graphics.h"
+#include "mediastation/mediascript/function.h"
+#include "mediastation/actors/stage.h"
 
 namespace MediaStation {
 
 struct MediaStationGameDescription;
-class Hotspot;
+class HotspotActor;
+class RootStage;
+class Bitmap;
 
 // Most Media Station titles follow this file structure from the root directory
 // of the CD-ROM:
@@ -61,7 +66,11 @@ static const char *const directoryGlobs[] = {
 	nullptr
 };
 
-class MediaStationEngine : public Engine {
+// As this is currently structured, some of the methods in the main engine class are from
+// the RT_ImtGod class in the original, and others are from the RT_App class in the original.
+// In the interest of avoiding more indirection than is already present in the original, we will
+// just keep these together for now.
+class MediaStationEngine : public Engine, public ChannelClient {
 public:
 	MediaStationEngine(OSystem *syst, const ADGameDescription *gameDesc);
 	~MediaStationEngine() override;
@@ -76,32 +85,49 @@ public:
 	};
 
 	bool isFirstGenerationEngine();
-	void processEvents();
-	void refreshActiveHotspot();
-	void redraw();
+	void dispatchSystemEvents();
+	void draw(bool dirtyOnly = true);
 
-	void setPalette(Asset *palette);
-	void registerAsset(Asset *assetToAdd);
+	void registerActor(Actor *actorToAdd);
+	void destroyActor(uint actorId);
+	void destroyContext(uint contextId, bool eraseFromLoadedContexts = true);
+	bool contextIsLocked(uint contextId);
 
-	Asset *getAssetById(uint assetId);
-	Asset *getAssetByChunkReference(uint chunkReference);
-	Function *getFunctionById(uint functionId);
+	void readUnrecognizedFromStream(Chunk &chunk, uint sectionType);
+	void readHeaderSections(Subfile &subfile, Chunk &chunk);
+
+	Actor *getActorById(uint actorId);
+	SpatialEntity *getSpatialEntityById(uint spatialEntityId);
+	ChannelClient *getChannelClientByChannelIdent(uint channelIdent);
 	ScriptValue *getVariable(uint variableId);
+	VideoDisplayManager *getDisplayManager() { return _displayManager; }
+	CursorManager *getCursorManager() { return _cursorManager; }
+	FunctionManager *getFunctionManager() { return _functionManager; }
+	RootStage *getRootStage() { return _stageDirector->getRootStage(); }
+	StreamFeedManager *getStreamFeedManager() { return _streamFeedManager; }
+	Document *getDocument() { return _document; }
 
-	ScriptValue callMethod(BuiltInMethod methodId, Common::Array<ScriptValue> &args);
-	ScriptValue callBuiltInFunction(BuiltInFunction function, Common::Array<ScriptValue> &args);
+	const FileInfo &fileInfoForIdent(uint fileId) { return _fileMap.getValOrDefault(fileId); }
+	const StreamInfo &streamInfoForIdent(uint streamId) { return _streamMap.getValOrDefault(streamId); }
+	const ScreenReference &screenRefWithId(uint screenActorId) { return _screenReferences.getValOrDefault(screenActorId); }
+	const ContextReference &contextRefWithId(uint contextId) { return _contextReferences.getValOrDefault(contextId); }
+
+	Common::Array<ParameterClient *> _parameterClients;
+	Common::HashMap<uint, Context *> _loadedContexts;
+
+	SpatialEntity *getMouseInsideHotspot() { return _mouseInsideHotspot; }
+	void setMouseInsideHotspot(SpatialEntity *entity) { _mouseInsideHotspot = entity; }
+	void clearMouseInsideHotspot() { _mouseInsideHotspot = nullptr; }
+
+	SpatialEntity *getMouseDownHotspot() { return _mouseDownHotspot; }
+	void setMouseDownHotspot(SpatialEntity *entity) { _mouseDownHotspot = entity; }
+	void clearMouseDownHotspot() { _mouseDownHotspot = nullptr; }
+
 	Common::RandomSource _randomSource;
 
-	Graphics::Screen *_screen = nullptr;
-	Context *_currentContext = nullptr;
-
-	Common::Point _mousePos;
-	Common::Array<Common::Rect> _dirtyRects;
-	bool _needsHotspotRefresh = false;
-
-	// All Media Station titles run at 640x480.
-	const uint16 SCREEN_WIDTH = 640;
-	const uint16 SCREEN_HEIGHT = 480;
+	static const uint SCREEN_WIDTH = 640;
+	static const uint SCREEN_HEIGHT = 480;
+	static const uint BOOT_STREAM_ID = 1;
 
 protected:
 	Common::Error run() override;
@@ -111,28 +137,62 @@ private:
 	Common::FSNode _gameDataDir;
 	const ADGameDescription *_gameDescription;
 
-	// In Media Station, only the cursors are stored in the executable; everything
-	// else is in the Context (*.CXT) data files.
-	CursorManager *_cursor;
-	void setCursor(uint id);
+	VideoDisplayManager *_displayManager = nullptr;
+	CursorManager *_cursorManager = nullptr;
+	FunctionManager *_functionManager = nullptr;
+	Document *_document = nullptr;
+	DeviceOwner *_deviceOwner = nullptr;
+	StageDirector *_stageDirector = nullptr;
+	StreamFeedManager *_streamFeedManager = nullptr;
 
-	Boot *_boot = nullptr;
-	Common::Array<Asset *> _assets;
-	Common::SortedArray<SpatialEntity *, const SpatialEntity *> _spatialEntities;
-	Common::HashMap<uint, Context *> _loadedContexts;
-	Asset *_currentHotspot = nullptr;
+	Common::HashMap<uint, Actor *> _actors;
+	SpatialEntity *_mouseInsideHotspot = nullptr;
+	SpatialEntity *_mouseDownHotspot = nullptr;
 
-	uint _requestedScreenBranchId = 0;
-	Common::Array<uint> _requestedContextReleaseId;
-	void doBranchToScreen();
+	Common::String _gameTitle;
+	VersionInfo _versionInfo;
+	Common::String _engineInfo;
+	Common::String _sourceString;
+	Common::HashMap<uint, ContextReference> _contextReferences;
+	Common::HashMap<uint, ScreenReference> _screenReferences;
+	Common::HashMap<uint, FileInfo> _fileMap;
+	Common::HashMap<uint, StreamInfo> _streamMap;
+	Common::HashMap<uint, EngineResourceDeclaration> _engineResourceDeclarations;
+	uint _unk1 = 0;
+	uint _functionTableSize = 0;
+	uint _unk3 = 0;
 
-	Context *loadContext(uint32 contextId);
-	void releaseContext(uint32 contextId);
-	Asset *findAssetToAcceptMouseEvents();
+	void initDisplayManager();
+	void initCursorManager();
+	void initFunctionManager();
+	void initDocument();
+	void initDeviceOwner();
+	void initStageDirector();
+	void initStreamFeedManager();
+	void setupInitialStreamMap();
 
-	void effectTransition(Common::Array<ScriptValue> &args);
+	void runEventLoop();
 
-	static int compareAssetByZIndex(const SpatialEntity *a, const SpatialEntity *b);
+	virtual void readChunk(Chunk &chunk) override;
+	void readDocumentDef(Chunk &chunk);
+	void readDocumentInfoFromStream(Chunk &chunk, BootSectionType sectionType);
+	void readVersionInfoFromStream(Chunk &chunk);
+	void readContextReferencesFromStream(Chunk &chunk);
+	void readScreenReferencesFromStream(Chunk &chunk);
+	void readAndAddFileMaps(Chunk &chunk);
+	void readAndAddStreamMaps(Chunk &chunk);
+
+	void readControlCommands(Chunk &chunk);
+	void readCommandFromStream(Chunk &chunk, ContextSectionType sectionType);
+	void readCreateContextData(Chunk &chunk);
+	void readDestroyContextData(Chunk &chunk);
+	void readCreateActorData(Chunk &chunk);
+	void readDestroyActorData(Chunk &chunk);
+	void readActorLoadComplete(Chunk &chunk);
+	void readCreateVariableData(Chunk &chunk);
+	void readContextNameData(Chunk &chunk);
+
+	void destroyActorsInContext(uint contextId);
 };
 
 extern MediaStationEngine *g_engine;

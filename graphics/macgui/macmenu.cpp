@@ -119,6 +119,7 @@ MacMenu::MacMenu(int id, const Common::Rect &bounds, MacWindowManager *wm)
 	_activeSubItem = -1;
 	_lastActiveItem = -1;
 	_lastActiveSubItem = -1;
+	_selectedItem = -1;
 
 	_ccallback = NULL;
 	_unicodeccallback = NULL;
@@ -682,6 +683,7 @@ void MacMenu::clearSubMenu(int id) {
 		delete menu->submenu->items[j];
 
 	menu->submenu->items.clear();
+	menu->submenu->highlight = -1;
 }
 
 void MacMenu::createSubMenuFromString(int id, const char *str, int commandId) {
@@ -796,6 +798,16 @@ const Font *MacMenu::getMenuFont(int slant) {
 #endif
 
 	return _wm->_fontMan->getFont(Graphics::MacFont(kMacFontSystem, 12, slant));
+}
+
+Common::CodePage MacMenu::getMenuEncoding() const {
+#ifdef USE_FREETYPE2
+	if (_wm->_mode & kWMModeWin95 && !(_wm->_mode & kWMModeForceMacFontsInWin95)) {
+		return Common::CodePage::kUtf8;
+	}
+#endif
+
+	return _wm->_fontMan->getFontEncoding(kMacFontSystem);
 }
 
 const Common::String MacMenu::getAcceleratorString(MacMenuItem *item, const char *prefix) {
@@ -987,7 +999,7 @@ template <typename T>
 static void drawMenuDelimiter(ManagedSurface &srcSurf, Common::Rect *r, int y, uint32 black, uint32 white) {
 	bool flip = r->left & 2;
 	T *ptr = (T *)srcSurf.getBasePtr(r->left + 1, y);
-	for (int xx = r->left + 1; xx <= r->right - 1; xx++, ptr++) {
+	for (int xx = r->left + 1; xx <= r->right - 2; xx++, ptr++) {
 		*ptr = flip ? black : white;
 		flip = !flip;
 	}
@@ -1082,8 +1094,20 @@ bool MacMenu::draw(ManagedSurface *g, bool forceRedraw) {
 			_font->drawString(s, utxt.visual, tx, ty, it->bbox.width(), color, _align, 0, true);
 			underlineAccelerator(s, _font, utxt, tx + accOff, ty, it->shortcutPos, color);
 		} else {
-			const Font *font = getMenuFont(it->style);
-			font->drawString(s, it->text, tx, ty, it->bbox.width(), color, Graphics::kTextAlignLeft, 0, true);
+            const Font *font = nullptr;
+            Common::String text = it->text;
+
+            if (text == "\xf0") {
+                font = _wm->_fontMan->getFont(Graphics::MacFont(kMacFontSymbol, 12, 0));
+
+                if (_wm->_fontMan->hasBuiltInFonts()) // Replace with (c) symbol if we have built-in fonts
+                    text = "\xa9";
+
+            } else {
+                font = getMenuFont(it->style);
+            }
+
+           font->drawString(s, text, tx, ty, it->bbox.width(), color, Graphics::kTextAlignLeft, 0, true);
 		}
 
 		if (!it->enabled) {
@@ -1175,6 +1199,14 @@ void MacMenu::renderSubmenu(MacMenuSubMenu *menu, bool recursive) {
 			Common::Rect trect(r->left, y - (_wm->_fontMan->hasBuiltInFonts() ? 1 : 0), r->right, y + _font->getFontHeight());
 
 			_screen.fillRect(trect, _wm->_colorBlack);
+
+			if (_selectedItem != i) {
+				if (menu->items[i]->unicode) {
+					_wm->sayText(menu->items[i]->unicodeText);
+				} else {
+					_wm->sayText(Common::U32String(menu->items[i]->text, getMenuEncoding()));
+				}
+			}
 		}
 
 		if (!text.empty() || !unicodeText.empty()) {
@@ -1236,6 +1268,8 @@ void MacMenu::renderSubmenu(MacMenuSubMenu *menu, bool recursive) {
 
 		y += _menuDropdownItemHeight;
 	}
+
+	_selectedItem = menu->highlight;
 
 	if (recursive && topMenuEnabled && menu->highlight != -1 && menu->items[menu->highlight]->enabled && menu->items[menu->highlight]->submenu != nullptr)
 		renderSubmenu(menu->items[menu->highlight]->submenu, false);
@@ -1356,6 +1390,7 @@ bool MacMenu::mouseClick(int x, int y) {
 
 				_activeItem = i;
 				_activeSubItem = -1;
+				_selectedItem = -1;
 				if (_items[_activeItem]->submenu != nullptr) {
 					_menustack.push_back(_items[_activeItem]->submenu);
 					_items[_activeItem]->submenu->highlight = -1;
@@ -1564,6 +1599,7 @@ void MacMenu::closeMenu() {
 
 	_activeItem = -1;
 	_activeSubItem = -1;
+	_selectedItem = -1;
 	_menustack.clear();
 
 	_wm->setFullRefresh(true);

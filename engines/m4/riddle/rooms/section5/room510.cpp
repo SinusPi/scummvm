@@ -273,6 +273,7 @@ void Room510::parser() {
 			break;
 		case 3:
 			kernel_timing_trigger(1, 4);
+			player_set_commands_allowed(true);
 			break;
 		case 4:
 			series_unload(_ripLooksDown);
@@ -383,7 +384,8 @@ void Room510::parser() {
 		case -1:
 			if (inv_object_is_here("WOODEN LADDER") && !_G(flags)[V169]) {
 				ws_walk(_G(my_walker), 395, 121, nullptr, 1, 5);
-			}
+			} else
+				return;
 			break;
 		case 1:
 			player_set_commands_allowed(false);

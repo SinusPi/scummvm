@@ -20,6 +20,7 @@
  */
 
 #include "audio/mixer.h"
+#include "common/array.h"
 
 namespace Freescape {
 
@@ -104,6 +105,8 @@ public:
 	int _soundIndexDestroyECD;
 	Audio::SoundHandle _soundFxHandleJetpack;
 
+	Common::Array<byte> _musicData; // HDSMUSIC.AM TEXT segment (Amiga)
+
 	void drawString(const DarkFontSize size, const Common::String &str, int x, int y, uint32 primaryColor, uint32 secondaryColor, uint32 backColor, Graphics::Surface *surface);
 	void drawInfoMenu() override;
 
@@ -118,6 +121,8 @@ private:
 	bool tryDestroyECD(int index);
 	bool tryDestroyECDFullGame(int index);
 	void addWalls(Area *area);
+	void drawVerticalCompass(Graphics::Surface *surface, int x, int y, float angle, uint32 color);
+	void drawHorizontalCompass(int x, int y, float angle, uint32 front, uint32 back, Graphics::Surface *surface);
 };
 
 }

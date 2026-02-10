@@ -32,13 +32,9 @@ namespace Riddle {
 namespace Rooms {
 
 const int16 OFFICIAL_NORMAL_DIRS[] = { 200, 201, 202, -1 };
-const char *OFFICIAL_NORMAL_NAMES[] = {
-	"official walk pos11", "official walk pos9", "official walk pos7"
-};
+const char *OFFICIAL_NORMAL_NAMES[] = { "official walk pos11", "official walk pos9", "official walk pos7" };
 const int16 OFFICIAL_SHADOW_DIRS[] = { 210, 211, 212, -1 };
-const char *OFFICIAL_SHADOW_NAMES[] = {
-	"203of09s", "203of04s", "203of12s"
-};
+const char *OFFICIAL_SHADOW_NAMES[] = { "203of09s", "203of04s", "203of12s" };
 
 const int16 SNORMAL1_DIRS[] = { 200, -1 };
 const char *SNORMAL1_NAMES[] = { "203s01" };
@@ -580,6 +576,8 @@ void Room203::daemon() {
 		_oldLadyMode = 5666;
 		_oldLadyShould = 5100;
 		kernel_timing_trigger(1, 130);
+		ws_unhide_walker(_G(my_walker));
+		player_set_commands_allowed(true);
 		break;
 
 	case 60:
@@ -915,7 +913,7 @@ void Room203::daemon() {
 				} else {
 					player_update_info();
 
-					if (_G(player_info).x >= 450 && _G(player_info).x <= 8000) {
+					if (_G(player_info).x >= 450 && _G(player_info).x <= 800) {
 						kernel_trigger_dispatchx(kernel_trigger_create(121));
 					} else {
 						player_set_commands_allowed(false);
@@ -966,7 +964,7 @@ void Room203::daemon() {
 				} else {
 					player_update_info();
 
-					if (_G(player_info).x >= 450 && _G(player_info).x <= 1040) {
+					if (_G(player_info).x >= 800 && _G(player_info).x <= 1040) {
 						kernel_trigger_dispatchx(kernel_trigger_create(121));
 					} else {
 						player_set_commands_allowed(false);
@@ -1155,6 +1153,7 @@ void Room203::daemon() {
 					triggerMachineByHashCallback, "pesky peasant");
 				_peasantShadow = TriggerMachineByHash(1, 1, 0, 0, 0, 0, 745, 325, 75, 0x800, false,
 					triggerMachineByHashCallback, "pesky peasant shadow");
+				peasantAnim1();
 				_peasantShould = 4118;
 				break;
 
@@ -1608,7 +1607,7 @@ void Room203::daemon() {
 
 	case 130:
 		switch (_oldLadyMode) {
-		case 30:
+		case 40:
 			break;
 
 		case 5666:

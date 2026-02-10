@@ -264,29 +264,29 @@ Common::KeymapArray SagaMetaEngine::initKeymaps(const char *target) const {
 	using namespace Common;
 	using namespace Saga;
 
-	Keymap *engineKeyMap = new Keymap(Keymap::kKeymapTypeGame, engineKeyMapId, _("Default game keymap"));
-	Keymap *gameKeyMap = new Keymap(Keymap::kKeymapTypeGame, gameKeyMapId, _("Game keymapping"));
-	Keymap *optionKeyMap = new Keymap(Keymap::kKeymapTypeGame, optionKeyMapId, _("Option panel keymapping"));
-	Keymap *saveKeyMap = new Keymap(Keymap::kKeymapTypeGame, saveKeyMapId, _("Save panel keymapping"));
-	Keymap *loadKeyMap = new Keymap(Keymap::kKeymapTypeGame, loadKeyMapId, _("Load panel keymapping"));
-	Keymap *quitKeyMap = new Keymap(Keymap::kKeymapTypeGame, quitKeyMapId, _("Quit panel keymapping"));
-	Keymap *converseKeyMap = new Keymap(Keymap::kKeymapTypeGame, converseKeyMapId, _("Converse panel keymapping"));
+	Keymap *engineKeyMap = new Keymap(Keymap::kKeymapTypeGame, engineKeyMapId, _("Default game keymappings"));
+	Keymap *gameKeyMap = new Keymap(Keymap::kKeymapTypeGame, gameKeyMapId, _("Game keymappings"));
+	Keymap *optionKeyMap = new Keymap(Keymap::kKeymapTypeGame, optionKeyMapId, _("Option panel keymappings"));
+	Keymap *saveKeyMap = new Keymap(Keymap::kKeymapTypeGame, saveKeyMapId, _("Save panel keymappings"));
+	Keymap *loadKeyMap = new Keymap(Keymap::kKeymapTypeGame, loadKeyMapId, _("Load panel keymappings"));
+	Keymap *quitKeyMap = new Keymap(Keymap::kKeymapTypeGame, quitKeyMapId, _("Quit panel keymappings"));
+	Keymap *converseKeyMap = new Keymap(Keymap::kKeymapTypeGame, converseKeyMapId, _("Converse panel keymappings"));
 
 	Action *act;
 
 	{
-		act = new Action(kStandardActionLeftClick, _("Left Click"));
+		act = new Action(kStandardActionLeftClick, _("Left click"));
 		act->setLeftClickEvent();
 		act->addDefaultInputMapping("MOUSE_LEFT");
 		act->addDefaultInputMapping("JOY_A");
 		engineKeyMap->addAction(act);
 
-		act = new Action(kStandardActionMiddleClick, _("Middle Click"));
+		act = new Action(kStandardActionMiddleClick, _("Middle click"));
 		act->addDefaultInputMapping("MOUSE_MIDDLE");
 		act->setMiddleClickEvent();
 		engineKeyMap->addAction(act);
 
-		act = new Action(kStandardActionRightClick, _("Right Click"));
+		act = new Action(kStandardActionRightClick, _("Right click"));
 		act->setRightClickEvent();
 		act->addDefaultInputMapping("MOUSE_RIGHT");
 		act->addDefaultInputMapping("JOY_B");
@@ -341,7 +341,7 @@ Common::KeymapArray SagaMetaEngine::initKeymaps(const char *target) const {
 		act->addDefaultInputMapping("SPACE");
 		gameKeyMap->addAction(act);
 
-		act = new Action("SHOWDILOG", _("Show dialogue"));
+		act = new Action("SHOWDILOG", _("Show dialog"));
 		act->setCustomEngineActionEvent(kActionShowDialogue);
 		act->addDefaultInputMapping("r");
 		gameKeyMap->addAction(act);

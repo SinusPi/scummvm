@@ -326,16 +326,16 @@ static void gizmo_daemon(int trigger) {
 
 static void gizmo_restore_interface(bool fade) {
 	if (_GIZMO(initialized)) {
-		_GIZMO(currentItem) = 0;
+		_GIZMO(currentItem) = nullptr;
 
 		if (_GIZMO(lowMemory2)) {
 			if (!adv_restoreBackground())
-				error_show(FL, 0, "unable to restore background");
+				error_show(FL, "unable to restore background");
 		}
 
 		if (_GIZMO(lowMemory1)) {
 			if (!adv_restoreCodes())
-				error_show(FL, 0, "unable to restore screen codes");
+				error_show(FL, "unable to restore screen codes");
 		}
 
 		krn_fade_from_grey(_GIZMO(palette), 5, 1, fade ? 1 : 2);
@@ -354,7 +354,7 @@ static void gizmo_dispose_gui() {
 		vmng_screen_dispose(_GIZMO(gui));
 		gizmo_free_gui(_GIZMO(gui));
 		gizmo_free_sprites();
-		_GIZMO(gui) = 0;
+		_GIZMO(gui) = nullptr;
 	}
 }
 
@@ -379,21 +379,18 @@ static bool gizmo_load_sprites(const char *name, size_t count) {
 			&_GIZMO(palOffset), _GIZMO(palette)) > 0) {
 		gr_pal_set_range(_GIZMO(palette), 64, 192);
 		_GIZMO(assetName) = mem_strdup(name);
-
 		_GIZMO(spriteCount) = count;
 		_GIZMO(sprites) = (M4sprite **)mem_alloc(count * sizeof(M4sprite *), "*sprites array");
 
 		for (size_t idx = 0; idx < count; ++idx) {
 			_GIZMO(sprites)[idx] = CreateSprite(_GIZMO(seriesHandle), _GIZMO(celsOffset),
 				idx, nullptr, nullptr);
-			if (!_GIZMO(sprites)[idx])
-				return false;
 		}
 
 		return true;
-	} else {
-		return false;
 	}
+
+	return false;
 }
 
 static void gizmo_free_sprites() {
@@ -402,7 +399,7 @@ static void gizmo_free_sprites() {
 		mem_free(_GIZMO(assetName));
 
 		_GIZMO(assetName) = nullptr;
-		_GIZMO(seriesHandle) = 0;
+		_GIZMO(seriesHandle) = nullptr;
 		_GIZMO(celsOffset) = -1;
 		_GIZMO(palOffset) = -1;
 
@@ -497,8 +494,8 @@ static bool gizmo_eventHandler(void *s, int32 eventType, int32 event, int32 x, i
 		}
 	}
 
-	int xs = x + ctx->x1;
-	int ys = y + ctx->y1;
+	const int xs = x + ctx->x1;
+	const int ys = y + ctx->y1;
 
 	if (_GIZMO(currentItem)) {
 		flag = (*_GIZMO(currentItem)->_fnEvents)(_GIZMO(currentItem),
@@ -528,8 +525,7 @@ static bool gizmo_eventHandler(void *s, int32 eventType, int32 event, int32 x, i
 		}
 
 	} else if (eventType == EVENT_KEY) {
-		GizmoItem *item;
-		for (item = gizmo->_items; item && !flag; item = item->_next) {
+		for (GizmoItem *item = gizmo->_items; item && !flag; item = item->_next) {
 			if (item->_fnEvents)
 				flag = (*item->_fnEvents)(item, eventType, event, -1, -1, nullptr);
 		}
@@ -800,7 +796,6 @@ static GizmoItem *gizmo_add_item(Gizmo *gizmo, int id,
 
 	// Create new item
 	GizmoItem *item = (GizmoItem *)mem_alloc(sizeof(GizmoItem), "*gui gizmo item");
-	assert(item);
 
 	// Put the new item at the head of the list
 	item->_next = gizmo->_items;
@@ -826,8 +821,6 @@ static GizmoItem *gizmo_add_item(Gizmo *gizmo, int id,
 	}
 
 	GizmoButton *btn = (GizmoButton *)mem_alloc(sizeof(GizmoButton), "*gizmo button");
-	assert(btn);
-
 	btn->_state = selected ? SELECTED : NOTHING;
 	btn->_index = btnIndex;
 	btn->_field8 = arg9;
@@ -855,8 +848,6 @@ static Gizmo *gui_create_gizmo(M4sprite *sprite, int sx, int sy, uint scrnFlags)
 		return nullptr;
 
 	Gizmo *gui = (Gizmo *)mem_alloc(sizeof(Gizmo), "*gui gizmo");
-	if (!gui)
-		return nullptr;
 
 	GrBuff *grBuff = new GrBuff(sprite->w, sprite->h);
 	gui->_grBuff = grBuff;

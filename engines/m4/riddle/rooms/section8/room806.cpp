@@ -154,14 +154,18 @@ void Room806::init() {
 			if (!_G(flags)[V265]) {
 				ws_walk(_G(my_walker), 221, 316, nullptr, 12001, 3, true);
 			} else {
-				if (!player_been_here(809))
-					kernel_timing_trigger(imath_ranged_rand(1200, 1800), 201, nullptr);
+				ws_walk(_G(my_walker), 221, 316, nullptr, 999, 3, true);
+				
+				if (!_G(flags)[V276]) {
+					if (!player_been_here(809))
+						kernel_timing_trigger(imath_ranged_rand(1200, 1800), 201, nullptr);
 
-				kernel_timing_trigger(imath_ranged_rand(1200, 1800), 701, nullptr);
+					kernel_timing_trigger(imath_ranged_rand(1200, 1800), 701, nullptr);
+				}
 			}
 
 			if (!_G(flags)[V276])
-				sendWSMessage_10000(_mcTrekMach, 30, 296, 0, 501, 1);
+				sendWSMessage_10000(_mcTrekMach, 30, 296, 0, 501, 0);
 
 		} else if (!_G(flags)[V265]) {
 			sendWSMessage_10000(_mcTrekMach, 225, 306, 3, 101, 1);
@@ -921,7 +925,7 @@ void Room806::parser() {
 			adv_kill_digi_between_rooms(false);
 			digi_play_loop("950_s33", 1, 255, -1, -1);
 			digi_play_loop("950_s29", 3, 93, -1, -1);
-			_G(game).new_room = 807;
+			_G(game).setRoom(807);
 
 			break;
 
@@ -1073,8 +1077,7 @@ void Room806::parser() {
 			ws_demand_location(_G(my_walker), 221, 316);
 			ws_demand_facing(_G(my_walker), 3);
 			other_save_game_for_resurrection();
-			_G(game).new_section = 4;
-			_G(game).new_room = 413;
+			_G(game).setRoom(413);
 
 			break;
 
@@ -1091,7 +1094,7 @@ void Room806::parser() {
 		} else if (_G(kernel).trigger == 1) {
 			adv_kill_digi_between_rooms(false);
 			digi_play_loop("950_s29", 3, 93, -1, -1);
-			_G(game).new_room = 805;
+			_G(game).setRoom(805);
 		}
 	} // if (player_said("west") && (_G(kernel).trigger == -1 || _G(kernel).trigger == 1))
 
@@ -1103,7 +1106,7 @@ void Room806::parser() {
 		} else if (_G(kernel).trigger == 1) {
 			adv_kill_digi_between_rooms(false);
 			digi_play_loop("950_s29", 3, 93, -1, -1);
-			_G(game).new_room = 807;
+			_G(game).setRoom(807);
 		}
 	}
 
@@ -1112,7 +1115,6 @@ void Room806::parser() {
 }
 
 void Room806::daemon() {
-	warning("Trigger %d", _G(kernel).trigger);
 	switch (_G(kernel).trigger) {
 	case 101:
 		ws_hide_walker(_mcTrekMach);
@@ -1256,26 +1258,26 @@ void Room806::daemon() {
 			break;
 
 		case 2:
-			setGlobals1(_meiTrekHeadTurnPos3Series, 1, 5, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
-			sendWSMessage_110000(_mcTrekMach, 210);
+			setGlobals1(_ripTrekHeadTurnPos3Series, 1, 5, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+			sendWSMessage_110000(_G(my_walker), 210);
 
 			break;
 
 		case 3:
-			setGlobals1(_meiTrekHeadTurnPos3Series, 6, 9, 9, 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
-			sendWSMessage_110000(_mcTrekMach, 211);
+			setGlobals1(_ripTrekHeadTurnPos3Series, 6, 9, 9, 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+			sendWSMessage_110000(_G(my_walker), 211);
 
 			break;
 
 		case 4:
-			setGlobals1(_meiTrekHeadTurnPos3Series, 1, 7, 7, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
-			sendWSMessage_110000(_mcTrekMach, 212);
+			setGlobals1(_ripLookUpPos3Series, 1, 7, 7, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+			sendWSMessage_110000(_G(my_walker), 212);
 
 			break;
 
 		case 5:
-			setGlobals1(_meiTrekHeadTurnPos3Series, 1, 20, 20, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
-			sendWSMessage_110000(_mcTrekMach, 220);
+			setGlobals1(_ripPos3LookAroundSeries, 1, 20, 20, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+			sendWSMessage_110000(_G(my_walker), 220);
 
 			break;
 

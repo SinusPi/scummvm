@@ -99,7 +99,8 @@ Common::Error ComposerMetaEngine::createInstance(OSystem *syst, Engine **engine,
 }
 
 bool ComposerMetaEngine::hasFeature(MetaEngineFeature f) const {
-	return ((f == kSupportsListSaves) || (f == kSupportsLoadingDuringStartup));
+	// FIXME: Disabled loading from launcher currently due to issues with loading Darby The Dragon (and probably others) savegames. See bug #16432
+	return ((f == kSupportsListSaves) /*|| (f == kSupportsLoadingDuringStartup)*/);
 }
 
 Common::KeymapArray ComposerMetaEngine::initKeymaps(const char *target) const {
@@ -110,13 +111,13 @@ Common::KeymapArray ComposerMetaEngine::initKeymaps(const char *target) const {
 
 	Action *act;
 
-	act = new Action(kStandardActionLeftClick, _("Left Click"));
+	act = new Action(kStandardActionLeftClick, _("Left click"));
 	act->setLeftClickEvent();
 	act->addDefaultInputMapping("MOUSE_LEFT");
 	act->addDefaultInputMapping("JOY_A");
 	engineKeyMap->addAction(act);
 
-	act = new Action(kStandardActionRightClick, _("Right Click"));
+	act = new Action(kStandardActionRightClick, _("Right click"));
 	act->setRightClickEvent();
 	act->addDefaultInputMapping("MOUSE_RIGHT");
 	act->addDefaultInputMapping("JOY_B");

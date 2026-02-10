@@ -30,11 +30,12 @@ namespace Freescape {
 
 void DarkEngine::initCPC() {
 	_viewArea = Common::Rect(36, 24, 284, 125);
-	_soundIndexShoot = 0xa;
-	_soundIndexStart = 0x17;
-	_soundIndexAreaChange = 0x1c;
-	_soundIndexDestroyECD = 0x1b;
-	_soundIndexRestoreECD = 8;
+	// Sound mappings from DARKCODE.BIN disassembly (sub_7409h call sites)
+	// _soundIndexShoot = 1 inherited from constructor (0x61BF: LD A,01h; CALL 7409h)
+	_soundIndexStart = 23;           // 0x2F68: game start transition
+	_soundIndexAreaChange = 28;      // 0x6802: deferred via (1FF2h), area transition portal
+	_soundIndexDestroyECD = 27;      // ECD destruction
+	_soundIndexRestoreECD = 8;       // 0x7A77: deferred via (1FF2h), encounter/objective
 }
 
 extern byte kCPCPaletteTitleData[4][3];
@@ -59,7 +60,6 @@ byte kCPCPaletteDarkTitle[16][3] = {
 	{0x00, 0x80, 0x00}, // 15: X
 };
 
-extern Graphics::ManagedSurface *readCPCImage(Common::SeekableReadStream *file, bool mode0);
 
 void DarkEngine::loadAssetsCPCFullGame() {
 	Common::File file;
@@ -89,6 +89,7 @@ void DarkEngine::loadAssetsCPCFullGame() {
 	loadFonts(&file, 0x60f3);
 	loadGlobalObjects(&file, 0x9a, 23);
 	load8bitBinary(&file, 0x6255, 16);
+	loadSoundsCPC(&file, 0x09B7, 160, 0x0A57, 284, 0x0B73, 203);
 	_indicators.push_back(loadBundledImage("dark_fallen_indicator"));
 	_indicators.push_back(loadBundledImage("dark_crouch_indicator"));
 	_indicators.push_back(loadBundledImage("dark_walk_indicator"));
@@ -112,6 +113,9 @@ void DarkEngine::drawCPCUI(Graphics::Surface *surface) {
 
 	_gfx->readFromPalette(color, r, g, b);
 	uint32 back = _gfx->_texturePixelFormat.ARGBToColor(0xFF, r, g, b);
+
+	// Drawing the horizontal compass should be done first, so that the background is properly filled
+	drawHorizontalCompass(200, 143, _yaw, front, back, surface);
 
 	int score = _gameStateVars[k8bitVariableScore];
 	int ecds = _gameStateVars[kVariableActiveECDs];
@@ -162,6 +166,7 @@ void DarkEngine::drawCPCUI(Graphics::Surface *surface) {
 	}
 	drawBinaryClock(surface, 300, 124, front, back);
 	drawIndicator(surface, 160, 136);
+	drawVerticalCompass(surface, 24, 76, _pitch, front);
 }
 
 } // End of namespace Freescape

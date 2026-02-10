@@ -93,13 +93,13 @@ void SnapProcess::updateCurrentEgg() {
 	int32 axd, ayd, azd;
 	Point3 pta = a->getLocation();
 	a->getFootpadWorld(axd, ayd, azd);
-	Rect arect(pta.x, pta.y, pta.x + axd, pta.y + ayd);
+	Common::Rect32 arect(pta.x, pta.y, pta.x + axd, pta.y + ayd);
 
 	for (const auto &eggId : _snapEggs) {
 		const Item *egg = getItem(eggId);
 		if (!egg)
 			continue;
-		Rect r;
+		Common::Rect32 r;
 		Point3 pte = egg->getLocation();
 		getSnapEggRange(egg, r);
 		if (r.intersects(arect) && (pta.z <= pte.z + 0x30 && pta.z >= pte.z - 0x30)) {
@@ -113,22 +113,21 @@ void SnapProcess::updateCurrentEgg() {
 void SnapProcess::removeEgg(Item *item) {
 	assert(item);
 	ObjId id = item->getObjId();
-	for (Std::list<ObjId>::iterator iter = _snapEggs.begin();
-		 iter != _snapEggs.end(); iter++) {
+	for (auto iter = _snapEggs.begin(); iter != _snapEggs.end(); ++iter) {
 		if (*iter == id) {
 			iter = _snapEggs.erase(iter);
 		}
 	}
 	if (id == _currentSnapEgg) {
 		_currentSnapEgg = 0;
-		_currentSnapEggRange = Rect();
+		_currentSnapEggRange = Common::Rect32();
 	}
 }
 
 void SnapProcess::clearEggs() {
 	_snapEggs.clear();
 	_currentSnapEgg = 0;
-	_currentSnapEggRange = Rect();
+	_currentSnapEggRange = Common::Rect32();
 }
 
 
@@ -147,7 +146,7 @@ bool SnapProcess::isNpcInRangeOfCurrentEgg() const {
 	a->getFootpadWorld(axd, ayd, azd);
 	Point3 pte = currentegg->getLocation();
 
-	Rect arect(pta.x, pta.y, pta.x + axd, pta.y + ayd);
+	Common::Rect32 arect(pta.x, pta.y, pta.x + axd, pta.y + ayd);
 
 	if (!_currentSnapEggRange.intersects(arect))
 		return false;
@@ -157,7 +156,7 @@ bool SnapProcess::isNpcInRangeOfCurrentEgg() const {
 	return true;
 }
 
-void SnapProcess::getSnapEggRange(const Item *item, Rect &rect) const {
+void SnapProcess::getSnapEggRange(const Item *item, Common::Rect32 &rect) const {
 	assert(item);
 	uint16 qhi = ((item->getQuality() >> 8) & 0xff);
 	// Interpreting the values as *signed* char here is deliberate.

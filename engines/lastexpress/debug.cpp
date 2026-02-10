@@ -47,26 +47,30 @@ typedef struct ImGuiState {
 	LastExpressEngine *_engine = nullptr;
 	ImGuiTextFilter _filter;
 	int _currentTab = 0;
-	int _selectedCharacter = -1;
+	int _selectedCharacter = 0;
 	bool _forceReturnToListView = false;
 	float _rightPanelWidth = 0.0f;
 	float _bottomPanelHeight = 0.0f;
 	float _rightTopPanelHeight = 0.0f;
 	int _ticksToAdvance = 0;
+	ImTextureID _textureID = ImTextureID_Invalid;
+	int _selectedGlobalVarRow = -1;
 } ImGuiState;
 
 ImGuiState *_state = nullptr;
 
 void onImGuiInit() {
 	ImGuiIO &io = ImGui::GetIO();
-	io.Fonts->AddFontDefault();
-	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable; 
+	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
 	_state = new ImGuiState();
 	_state->_engine = (LastExpressEngine *)g_engine;
 }
 
 void onImGuiRender() {
+	if (_state->_engine->shouldQuit() || _state->_engine->_exitFromMenuButton)
+		return;
+
 	if (!debugChannelSet(-1, kDebugConsole)) {
 		ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange | ImGuiConfigFlags_NoMouse;
 		return;
@@ -169,14 +173,26 @@ void onImGuiRender() {
 					ImGui::EndTabItem();
 				}
 
+				if (ImGui::BeginTabItem("Current Scene")) {
+					_state->_currentTab = 3;
+					ImGui::EndTabItem();
+				}
+
+				if (ImGui::BeginTabItem("Global Vars")) {
+					_state->_currentTab = 4;
+					ImGui::EndTabItem();
+				}
+
 				ImGui::EndTabBar();
 			}
 
-			// Update the character filter...
-			_state->_filter.Draw("Filter Characters", 180);
-			ImGui::SameLine();
-			if (ImGui::Button("Clear")) {
-				_state->_filter.Clear();
+			if (_state->_currentTab >= 0 && _state->_currentTab <= 2) {
+				// Update the character filter...
+				_state->_filter.Draw("Filter Characters", 180);
+				ImGui::SameLine();
+				if (ImGui::Button("Clear")) {
+					_state->_filter.Clear();
+				}
 			}
 
 			// Show corresponding view based on selected tab...
@@ -189,6 +205,14 @@ void onImGuiRender() {
 				break;
 			case 2: // Pinned Characters
 				_state->_engine->getLogicManager()->renderCharacterGrid(true, _state->_selectedCharacter);
+				break;
+			case 3: // Current Scene
+				_state->_engine->getLogicManager()->renderCurrentSceneDebugger();
+				break;
+			case 4: // Global Vars
+				_state->_engine->getLogicManager()->renderGlobalVars();
+				break;
+			default:
 				break;
 			}
 		}
@@ -413,7 +437,7 @@ void LogicManager::renderCharacterList(int &selectedCharacter) {
 	// Right panel: Character details
 	ImGui::BeginChild("CharacterDetails", ImVec2(0, 0), true);
 
-	if (selectedCharacter >= 0 && selectedCharacter < 40) {
+	if (selectedCharacter < 40) {
 		Character *character = &getCharacter(selectedCharacter);
 		if (character) {
 			renderCharacterDetails(character, selectedCharacter);
@@ -423,6 +447,330 @@ void LogicManager::renderCharacterList(int &selectedCharacter) {
 	}
 
 	ImGui::EndChild();
+}
+
+void LogicManager::renderCurrentSceneDebugger() {
+	if (_state->_textureID)
+		g_system->freeImGuiTexture((void *)_state->_textureID);
+
+	// Let's blit the current background on the ImGui window...
+	Graphics::Surface temp;
+	temp.create(640, 480, Graphics::PixelFormat(2, 5, 6, 5, 0, 11, 5, 0, 0));
+	_engine->getGraphicsManager()->copy(_engine->getGraphicsManager()->_backBuffer, (PixMap *)temp.getPixels(), 0, 0, 640, 480);
+
+	_state->_textureID = (ImTextureID)(intptr_t)g_system->getImGuiTexture(temp);
+
+	temp.free();
+
+	ImVec2 imagePos = ImGui::GetCursorScreenPos();
+	ImVec2 imageSize(640, 480);
+
+	ImGui::Image(_state->_textureID, imageSize);
+
+	// Set hovering flag...
+	ImVec2 mousePos = ImGui::GetMousePos();
+	ImVec2 relativeMousePos(mousePos.x - imagePos.x, mousePos.y - imagePos.y);
+
+	bool mouseOverImage = (relativeMousePos.x >= 0 && relativeMousePos.x < 640 &&
+						   relativeMousePos.y >= 0 && relativeMousePos.y < 480);
+
+	ImDrawList *drawList = ImGui::GetWindowDrawList();
+
+	Link *hoveredLink = nullptr;
+	int hoveredLinkIndex = -1;
+
+	// Draw all the Link hotspots and collision lines...
+	Node *currentNode = &_trainData[_activeNode];
+	if (currentNode && currentNode->link) {
+		Link *currentLink = currentNode->link;
+		int linkIndex = 0;
+
+		while (currentLink) {
+			// Calculate screen coordinates for this link's bounding box...
+			ImVec2 topLeft(imagePos.x + currentLink->left, imagePos.y + currentLink->top);
+			ImVec2 bottomRight(imagePos.x + currentLink->right, imagePos.y + currentLink->bottom);
+
+			// Check if mouse is hovering over this link...
+			bool isHovered = mouseOverImage &&
+							 relativeMousePos.x >= currentLink->left && relativeMousePos.x <= currentLink->right &&
+							 relativeMousePos.y >= currentLink->top && relativeMousePos.y <= currentLink->bottom;
+
+			// Store the hovered link with highest priority,
+			// if they have the same priority, the last one in list wins...
+			if (isHovered) {
+				if (hoveredLink == nullptr ||
+					currentLink->location > hoveredLink->location ||
+					currentLink->location == hoveredLink->location) {
+					hoveredLink = currentLink;
+					hoveredLinkIndex = linkIndex;
+				}
+			}
+
+			ImU32 rectColor = IM_COL32(255, 0, 0, 100);   // Semi-transparent red
+			ImU32 borderColor = IM_COL32(255, 0, 0, 255); // Solid red border
+
+			// Highlight hovered link...
+			if (isHovered) {
+				rectColor = IM_COL32(255, 255, 255, 150);
+			}
+
+			drawList->AddRectFilled(topLeft, bottomRight, rectColor);
+			drawList->AddRect(topLeft, bottomRight, borderColor, 0.0f, 0, 2.0f);
+
+			// Draw collision lines...
+			Line7 *currentLine = currentLink->lineList;
+			int lineIndex = 0;
+			while (currentLine) {
+				ImU32 lineColor = IM_COL32(0, 255, 255, 255);
+
+				switch (currentLine->lineType) {
+				case 0:
+					lineColor = IM_COL32(0, 255, 255, 255); // Cyan
+					break;
+				case 1:
+				default:
+					lineColor = IM_COL32(255, 128, 0, 255); // Orange
+					break;
+				}
+
+				if (currentLine->slope == 0) {
+					// Horizontal line: y = -intercept / 1000
+					float y = -(float)currentLine->intercept / 1000.0f;
+					if (y >= currentLink->top && y <= currentLink->bottom) {
+						ImVec2 lineStart(imagePos.x + currentLink->left, imagePos.y + y);
+						ImVec2 lineEnd(imagePos.x + currentLink->right, imagePos.y + y);
+						drawList->AddLine(lineStart, lineEnd, lineColor, 2.0f);
+					}
+				} else {
+					// Non-horizontal line
+					float slope = (float)currentLine->slope;
+					float intercept = (float)currentLine->intercept;
+
+					// Calculate line endpoints across the entire screen bounds...
+					Common::Array<ImVec2> intersectionPoints;
+
+					// Left edge (x = currentLink->left)
+					float yLeft = -(slope * currentLink->left + intercept) / 1000.0f;
+					if (yLeft >= currentLink->top && yLeft <= currentLink->bottom) {
+						intersectionPoints.push_back(ImVec2(imagePos.x + currentLink->left, imagePos.y + yLeft));
+					}
+
+					// Right edge (x = currentLink->right)
+					float yRight = -(slope * currentLink->right + intercept) / 1000.0f;
+					if (yRight >= currentLink->top && yRight <= currentLink->bottom) {
+						intersectionPoints.push_back(ImVec2(imagePos.x + currentLink->right, imagePos.y + yRight));
+					}
+
+					// Top edge (y = currentLink->top)
+					float xTop = -(1000.0f * currentLink->top + intercept) / slope;
+					if (xTop >= currentLink->left && xTop <= currentLink->right) {
+						intersectionPoints.push_back(ImVec2(imagePos.x + xTop, imagePos.y + currentLink->top));
+					}
+
+					// Bottom edge (y = currentLink->bottom)
+					float xBottom = -(1000.0f * currentLink->bottom + intercept) / slope;
+					if (xBottom >= currentLink->left && xBottom <= currentLink->right) {
+						intersectionPoints.push_back(ImVec2(imagePos.x + xBottom, imagePos.y + currentLink->bottom));
+					}
+
+					// Draw line if we have at least 2 intersection points...
+					if (intersectionPoints.size() >= 2) {
+						drawList->AddLine(intersectionPoints[0], intersectionPoints[1], lineColor, 2.0f);
+					}
+				}
+
+				currentLine = currentLine->next;
+				lineIndex++;
+			}
+
+			currentLink = currentLink->next;
+			linkIndex++;
+		}
+	}
+
+	// Show tooltip for hovered link...
+	if (hoveredLink && mouseOverImage) {
+		ImGui::BeginTooltip();
+		ImGui::Text("Link %d", hoveredLinkIndex);
+		ImGui::Text("Bounds: (%d,%d) - (%d,%d)", hoveredLink->left, hoveredLink->top, hoveredLink->right, hoveredLink->bottom);
+
+		if (hoveredLink->scene) {
+			ImGui::Text("Leads to scene: %s (%d)", _trainData[hoveredLink->scene].sceneFilename, hoveredLink->scene);
+		} else {
+			ImGui::Text("Leads to scene: None (0)");
+		}
+
+		ImGui::Text("Location: %d", hoveredLink->location);
+
+		const char *actionName;
+		if (_engine->getMenu()->isShowingMenu()) {
+			const char *menuActionNames[] = {
+				"None", "PlayGame", "Credits", "Quit", "Action4",
+				"Action5", "SwitchEggs", "Rewind", "FastForward", "Action9",
+				"GoToParis", "GoToStrasbourg", "GoToMunich", "GoToVienna", "GoToBudapest",
+				"GoToBelgrad", "GoToCostantinople", "VolumeDown", "VolumeUp", "BrightnessDown",
+				"BrightnessUp"
+			};
+
+			actionName = (hoveredLink->action < 21) ? menuActionNames[hoveredLink->action] : "Unknown";
+		} else {
+			const char *gameActionNames[] = {
+				"None", "Inventory", "SendCathMessage", "PlaySound", "PlayMusic",
+				"Knock", "Compartment", "PlaySounds", "PlayAnimation", "SetDoor",
+				"SetModel", "SetItem", "KnockInside", "TakeItem", "DropItem",
+				"LinkOnGlobal", "Rattle", "DummyAction1", "LeanOutWindow", "AlmostFall",
+				"ClimbInWindow", "ClimbLadder", "ClimbDownTrain", "KronosSanctum", "EscapeBaggage",
+				"EnterBaggage", "BombPuzzle", "Conductors", "KronosConcert", "LetterInAugustSuitcase",
+				"CatchBeetle", "ExitCompartment", "OutsideTrain", "FirebirdPuzzle", "OpenMatchBox",
+				"OpenBed", "DummyAction2", "HintDialog", "MusicEggBox", "FindEggUnderSink",
+				"Bed", "PlayMusicChapter", "PlayMusicChapterSetupTrain", "SwitchChapter", "EasterEgg"
+			};
+
+			actionName = (hoveredLink->action < 45) ? gameActionNames[hoveredLink->action] : "Unknown";
+		}
+
+		ImGui::Text("Action: %d (%s)", hoveredLink->action, actionName);
+
+		const char *cursorNames[] = {
+			"Normal", "Forward", "Backward", "TurnRight", "TurnLeft",
+			"Up", "Down", "Left", "Right", "Hand",
+			"HandKnock", "Magnifier", "HandPointer", "Sleep", "Talk",
+			"Talk2", "MatchBox", "Telegram", "PassengerList", "Article",
+			"Scarf", "Paper", "Parchemin", "Match", "Whistle",
+			"Key", "Bomb", "Firebird", "Briefcase", "Corpse",
+			"PunchLeft", "PunchRight", "Portrait", "PortraitSelected", "PortraitGreen",
+			"PortraitGreenSelected", "PortraitYellow", "PortraitYellowSelected", "HourGlass", "EggBlue",
+			"EggRed", "EggGreen", "EggPurple", "EggTeal", "EggGold",
+			"EggClock", "Normal2", "Blank"
+		};
+
+		const char *cursorName;
+		if (hoveredLink->cursor == 128) {
+			cursorName = "Process";
+		} else if (hoveredLink->cursor == 255) {
+			cursorName = "KeepValue";
+		} else if (hoveredLink->cursor < 48) {
+			cursorName = cursorNames[hoveredLink->cursor];
+		} else {
+			cursorName = "Unknown";
+		}
+
+		ImGui::Text("Cursor: %d (%s)", hoveredLink->cursor, cursorName);
+		ImGui::Text("Params: %d, %d, %d", hoveredLink->param1, hoveredLink->param2, hoveredLink->param3);
+
+		// Show line information...
+		if (hoveredLink->lineList) {
+			ImGui::Separator();
+			Line7 *line = hoveredLink->lineList;
+			int lineNum = 0;
+
+			while (line) {
+				ImGui::Text("Line %d: slope=%d, intercept=%d, type=%d",
+							lineNum, line->slope, line->intercept, line->lineType);
+
+				line = line->next;
+				lineNum++;
+			}
+		}
+
+		ImGui::EndTooltip();
+	}
+}
+
+void LogicManager::renderGlobalVars() {
+	_state->_selectedGlobalVarRow = -1;
+
+	if (ImGui::BeginTable("GlobalVars", 3, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable)) {
+		ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_WidthFixed, 40.0f);
+		ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthFixed, 400.0f);
+		ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
+		ImGui::TableHeadersRow();
+
+		const char *globalNames[58] = {
+			"",
+			"Jacket",
+			"CorpseMovedFromFloor",
+			"ReadLetterInAugustSuitcase",
+			"FoundCorpse",
+			"CharacterSearchingForCath",
+			"PhaseOfTheNight",
+			"CathIcon",
+			"CorpseHasBeenThrown",
+			"FrancoisHasSeenCorpseThrown",
+			"AnnaIsEating",
+			"Chapter",
+			"DoneSavePointAfterLeftCompWithNewJacket",
+			"MetAugust",
+			"IsDayTime",
+			"PoliceHasBoardedAndGone",
+			"ConcertIsHappening",
+			"KahinaKillTimeoutActive",
+			"MaxHasToStayInBaggage",
+			"UnknownDebugFlag",
+			"TrainIsRunning",
+			"AnnaIsInBaggageCar",
+			"DoneSavePointAfterLeavingSuitcaseInCathComp",
+			"TatianaFoundOutEggStolen",
+			"OverheardAugustInterruptingAnnaAtDinner",
+			"MetTatianaAndVassili",
+			"OverheardTatianaAndAlexeiAtBreakfast",
+			"KnowAboutAugust",
+			"KnowAboutKronos",
+			"EggIsOpen",
+			"CanPlayKronosSuitcaseLeftInCompMusic",
+			"CanPlayEggSuitcaseMusic",
+			"CanPlayEggUnderSinkMusic",
+			"CathInSpecialState",
+			"OverheardAlexeiTellingTatianaAboutBomb",
+			"OverheardAlexeiTellingTatianaAboutWantingToKillVassili",
+			"OverheardTatianaAndAlexeiPlayingChess",
+			"OverheardMilosAndVesnaConspiring",
+			"OverheardVesnaAndMilosDebatingAboutCath",
+			"FrancoisSawABlackBeetle",
+			"OverheardMadameAndFrancoisTalkingAboutWhistle",
+			"MadameDemandedMaxInBaggage",
+			"MadameComplainedAboutMax",
+			"MetMadame",
+			"KnowAboutRebeccaDiary",
+			"OverheardSophieTalkingAboutCath",
+			"MetSophieAndRebecca",
+			"KnowAboutRebeccaAndSophieRelationship",
+			"RegisteredTimeAtWhichCathGaveFirebirdToKronos",
+			"MetMahmud",
+			"AlmostFallActionIsAvailable",
+			"MetMilos",
+			"MetMonsieur",
+			"MetHadija",
+			"MetYasmin",
+			"MetAlouan",
+			"MetFatima",
+			"TatianaScheduledToVisitCath"
+		};
+
+		for (int i = 1; i < 58; i++) {
+			ImGui::TableNextRow();
+
+			// Make the entire row selectable, so I don't have to buy new glasses to see the name of the variable...
+			ImGui::TableSetColumnIndex(0);
+			bool isSelected = (_state->_selectedGlobalVarRow == i);
+			if (ImGui::Selectable(("##row" + Common::String(i)).c_str(), isSelected, ImGuiSelectableFlags_SpanAllColumns)) {
+				_state->_selectedGlobalVarRow = i;
+			}
+
+			ImGui::SameLine();
+
+			ImGui::TableSetColumnIndex(0);
+			ImGui::Text("%d", i);
+
+			ImGui::TableSetColumnIndex(1);
+			ImGui::Text("%s", globalNames[i]);
+
+			ImGui::TableSetColumnIndex(2);
+			ImGui::Text("%d", _globals[i]);
+		}
+
+		ImGui::EndTable();
+	}
 }
 
 Common::StringArray LogicManager::getCharacterFunctionNames(int character) {
@@ -502,7 +850,7 @@ void LogicManager::showTrainMapWindow() {
 	CarInfo *cars = nullptr;
 	int carCount = 0;
 
-	switch (_state->_engine->getLogicManager()->_globals[kProgressChapter]) {
+	switch (_state->_engine->getLogicManager()->_globals[kGlobalChapter]) {
 	case 1:
 		cars = carsChapter1;
 		carCount = ARRAYSIZE(carsChapter1);
@@ -515,7 +863,7 @@ void LogicManager::showTrainMapWindow() {
 		break;
 	case 4:
 	case 5:
-		if (_state->_engine->getLogicManager()->_globals[kProgressChapter] == 5 &&
+		if (_state->_engine->getLogicManager()->_globals[kGlobalChapter] == 5 &&
 			(_state->_engine->getLogicManager()->_doneNIS[kEventAugustUnhookCars] || _state->_engine->getLogicManager()->_doneNIS[kEventAugustUnhookCarsBetrayal])) {
 			cars = carsChapter5;
 			carCount = ARRAYSIZE(carsChapter5);

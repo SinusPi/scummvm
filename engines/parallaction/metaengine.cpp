@@ -43,11 +43,37 @@ Common::Platform Parallaction::getPlatform() const { return _gameDescription->de
 
 } // End of namespace Parallaction
 
+#ifdef USE_TTS
+
+static const ADExtraGuiOptionsMap optionsList[] = {
+	{
+		GAMEOPTION_TTS,
+		{
+			_s("Enable Text to Speech"),
+			_s("Use TTS to read the descriptions (if TTS is available)"),
+			"tts_enabled",
+			false,
+			0,
+			0
+		}
+	},
+	
+	AD_EXTRA_GUI_OPTIONS_TERMINATOR
+};
+
+#endif
+
 class ParallactionMetaEngine : public AdvancedMetaEngine<Parallaction::PARALLACTIONGameDescription> {
 public:
 	const char *getName() const override {
 		return "parallaction";
 	}
+
+#ifdef USE_TTS
+	const ADExtraGuiOptionsMap *getAdvancedExtraGuiOptions() const override {
+		return optionsList;
+	}
+#endif
 
 	bool hasFeature(MetaEngineFeature f) const override;
 	Common::Error createInstance(OSystem *syst, Engine **engine, const Parallaction::PARALLACTIONGameDescription *desc) const override;
@@ -109,13 +135,13 @@ Common::KeymapArray ParallactionMetaEngine::initKeymaps(const char *target) cons
 
 	Action *act;
 
-	act = new Action(kStandardActionLeftClick, _("Left Click"));
+	act = new Action(kStandardActionLeftClick, _("Left click"));
 	act->setLeftClickEvent();
 	act->addDefaultInputMapping("MOUSE_LEFT");
 	act->addDefaultInputMapping("JOY_A");
 	engineKeymap->addAction(act);
 
-	act = new Action(kStandardActionRightClick, _("Right Click"));
+	act = new Action(kStandardActionRightClick, _("Right click"));
 	act->setRightClickEvent();
 	act->addDefaultInputMapping("MOUSE_RIGHT");
 	act->addDefaultInputMapping("JOY_B");

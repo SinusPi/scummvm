@@ -42,8 +42,6 @@ struct ConsCallParam {
 	const char *stringParam;
 };
 
-#include "common/pack-start.h"
-
 typedef struct Message {
 	int receiver;
 	int action;
@@ -60,8 +58,6 @@ typedef struct Message {
 		sender = 0;
 	}
 } Message;
-
-#include "common/pack-end.h"
 
 typedef struct Event {
 	int channel;
@@ -98,7 +94,7 @@ public:
 	void flush();
 	void flushTime();
 	void forceMessage(Message *msg);
-	void reset();
+	void clearMessageQueue();
 	void clearEventQueue();
 	void clearClickEvents();
 	void saveMessages(CVCRFile *file);

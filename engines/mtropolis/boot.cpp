@@ -2232,7 +2232,7 @@ const Game games[] = {
 		MTBOOT_BABE_WIN_EN,
 		&BootScriptContext::bootGeneric
 	},
-	// Biologia Cellulare Evoluzione E Variet� Della Vita - Windows - Italian
+	// Biologia Cellulare Evoluzione E Varietà Della Vita - Windows - Italian
 	{
 		MTBOOT_BIOCELLEVO_WIN_IT,
 		&BootScriptContext::bootGeneric
@@ -2252,7 +2252,7 @@ const Game games[] = {
 		MTBOOT_GREVEHOLM2_WIN_SE,
 		&BootScriptContext::bootGeneric
 	},
-	// Itacante: La Cit� des Robots - Windows - French
+	// Itacante: La Cité des Robots - Windows - French
 	{
 		MTBOOT_ITACANTE_WIN_FR,
 		&BootScriptContext::bootGeneric
@@ -2696,8 +2696,12 @@ void findWindowsMainSegment(Common::Archive &fs, const BootScriptContext &bootSc
 	if (filteredFiles.size() == 0)
 		error("Couldn't find any main segment files");
 
-	if (filteredFiles.size() != 1)
+	if (filteredFiles.size() != 1) {
+		for (const Common::ArchiveMemberPtr &archiveMember : filteredFiles)
+			warning("Possible main segment file: '%s'", archiveMember->getPathInArchive().toString(fs.getPathSeparator()).c_str());
+
 		error("Found multiple main segment files");
+	}
 
 	resolvedPath = filteredFiles.front()->getPathInArchive();
 	resolvedIsV2 = !filteredFiles.front()->getFileName().hasSuffixIgnoreCase(".mpl");

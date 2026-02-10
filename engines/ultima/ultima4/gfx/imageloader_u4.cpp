@@ -27,6 +27,7 @@
 
 #include "common/file.h"
 #include "graphics/surface.h"
+#include "graphics/palette.h"
 
 namespace Ultima {
 namespace Ultima4 {
@@ -191,7 +192,7 @@ const byte *U4PaletteLoader::loadEgaPalette() {
 
 		_egaPalette = new byte[16 * 3];
 
-		Std::vector<ConfigElement> paletteConf = config->getElement("egaPalette").getChildren();
+		Common::Array<ConfigElement> paletteConf = config->getElement("egaPalette").getChildren();
 		for (const auto &i : paletteConf) {
 
 			if (i.getName() != "color")
@@ -218,7 +219,7 @@ const byte *U4PaletteLoader::loadVgaPalette() {
 		pal.read(_vgaPalette, 256 * 3);
 
 		for (int i = 0; i < 256 * 3; i++) {
-			_vgaPalette[i] = _vgaPalette[i] * 255 / 63;
+			_vgaPalette[i] = PALETTE_6BIT_TO_8BIT(_vgaPalette[i]);
 		}
 	}
 

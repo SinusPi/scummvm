@@ -50,6 +50,23 @@ void DrillerEngine::initDOS() {
 	_moveDownArea = Common::Rect(219, 157, 243, 167);
 	_deployDrillArea = Common::Rect(140, 175, 179, 191);
 	_infoScreenArea = Common::Rect(130, 125, 188, 144);
+
+	_soundIndexShoot = 1;
+	_soundIndexCollide = 2;
+	_soundIndexStepDown = 3;
+	_soundIndexStepUp = 4;
+	_soundIndexMenu = 2;
+	_soundIndexStart = 9;
+	_soundIndexAreaChange = 5;
+	_soundIndexHit = 2;
+
+	_soundIndexFall = 14;
+	_soundIndexNoShield = 20;
+	_soundIndexNoEnergy = 20;
+	_soundIndexFallen = 20;
+	_soundIndexTimeout = 20;
+	_soundIndexForceEndGame = 20;
+	_soundIndexCrushed = 20;
 }
 
 /*
@@ -216,7 +233,7 @@ void DrillerEngine::loadAssetsDOSFullGame() {
 		if (!file.isOpen())
 			error("Failed to open DRILLE.EXE");
 
-		loadSpeakerFxDOS(&file, 0x4397 + 0x200, 0x4324 + 0x200);
+		loadSpeakerFxDOS(&file, 0x4397 + 0x200, 0x4324 + 0x200, 20);
 		loadMessagesFixedSize(&file, 0x4135, 14, 20);
 		loadFonts(&file, 0x99dd);
 		loadGlobalObjects(&file, 0x3b42, 8);
@@ -241,12 +258,12 @@ void DrillerEngine::loadAssetsDOSFullGame() {
 		if (!file.isOpen())
 			error("Failed to open DRILLC.EXE");
 
-		loadSpeakerFxDOS(&file, 0x27e7 + 0x200, 0x2774 + 0x200);
+		loadSpeakerFxDOS(&file, 0x27e7 + 0x200, 0x2774 + 0x200, 20);
 
 		loadFonts(&file, 0x07a4a);
 		loadMessagesFixedSize(&file, 0x2585, 14, 20);
-		load8bitBinary(&file, 0x7bb0, 4);
 		loadGlobalObjects(&file, 0x1fa2, 8);
+		load8bitBinary(&file, 0x7bb0, 4);
 		_border = load8bitBinImage(&file, 0x210);
 		_border->setPalette((byte*)&kCGAPalettePinkBlueWhiteData, 0, 4);
 		swapPalette(1);
@@ -262,7 +279,7 @@ void DrillerEngine::loadAssetsDOSFullGame() {
 		if (!file.isOpen())
 			error("Failed to open DRILLH.EXE");
 
-		//loadSpeakerFxDOS(&file, 0x27e7 + 0x200, 0x2774 + 0x200);
+		//loadSpeakerFxDOS(&file, 0x27e7 + 0x200, 0x2774 + 0x200, 20);
 
 		loadFonts(&file, 0x8871);
 		loadMessagesFixedSize(&file, 0x3411, 14, 20);
@@ -301,8 +318,8 @@ void DrillerEngine::loadAssetsDOSDemo() {
 
 	loadFonts(&file, 0x4eb0);
 	loadMessagesFixedSize(&file, 0x636, 14, 20);
-	load8bitBinary(&file, 0x55b0, 4);
 	loadGlobalObjects(&file, 0x53, 8);
+	load8bitBinary(&file, 0x55b0, 4);
 	_border = load8bitDemoImage(&file, 0x6220);
 	_border->setPalette((byte*)&kCGAPalettePinkBlueWhiteData, 0, 4);
 

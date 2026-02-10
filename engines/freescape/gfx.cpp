@@ -35,18 +35,12 @@
 namespace Freescape {
 
 const Graphics::PixelFormat getRGBAPixelFormat() {
-#ifdef SCUMM_BIG_ENDIAN
-	return Graphics::PixelFormat(4, 8, 8, 8, 8, 24, 16, 8, 0);
-#else
-	return Graphics::PixelFormat(4, 8, 8, 8, 8, 0, 8, 16, 24);
-#endif
+	return Graphics::PixelFormat::createFormatRGBA32();
 }
 
 Renderer::Renderer(int screenW, int screenH, Common::RenderMode renderMode, bool authenticGraphics) {
 	_screenW = screenW;
 	_screenH = screenH;
-	_currentPixelFormat = Graphics::PixelFormat(4, 8, 8, 8, 8, 24, 16, 8, 0);
-	_palettePixelFormat = Graphics::PixelFormat(3, 8, 8, 8, 0, 0, 8, 16, 0);
 	_keyColor = -1;
 	_inkColor = -1;
 	_paperColor = -1;
@@ -56,6 +50,11 @@ Renderer::Renderer(int screenW, int screenH, Common::RenderMode renderMode, bool
 	_colorRemaps = nullptr;
 	_renderMode = renderMode;
 	_isAccelerated = false;
+	_debugRenderBoundingBoxes = false;
+	_debugBoundingBoxFilterID = -1;
+	_debugRenderWireframe = false;
+	_debugRenderNormals = false;
+	_debugHighlightObjectID = -1;
 	_authenticGraphics = authenticGraphics;
 
 	for (int i = 0; i < 16; i++) {
@@ -69,8 +68,6 @@ Renderer::Renderer(int screenW, int screenH, Common::RenderMode renderMode, bool
 }
 
 Renderer::~Renderer() {}
-
-extern byte getCPCPixel(byte cpc_byte, int index, bool mode0);
 
 byte getCPCStipple(byte cpc_byte, int back, int fore) {
 	int c0 = getCPCPixel(cpc_byte, 0, true);
@@ -276,7 +273,7 @@ void Renderer::setColorMap(ColorMap *colorMap_) {
 			byte c2 = (pair >> 4) & 0xf;
 			byte *entry = (*_colorMap)[i];
 			for (int j = 0; j < 128; j++)
-				_stipples[i][j] = getCGAStipple(entry[(j / 8) % 4], c1, c2);
+				_stipples[i][j] = getCGAStipple(entry[(j / 4) % 4], c1, c2);
 		}
 	} else if (_renderMode == Common::kRenderC64) {
 		fillColorPairArray();
@@ -286,7 +283,7 @@ void Renderer::setColorMap(ColorMap *colorMap_) {
 			byte c2 = (pair >> 4) & 0xf;
 			byte *entry = (*_colorMap)[i];
 			for (int j = 0; j < 128; j++)
-				_stipples[i][j] = getC64Stipple(entry[(j / 8) % 4], c1, c2);
+				_stipples[i][j] = getC64Stipple(entry[(j / 4) % 4], c1, c2);
 		}
 	}
 

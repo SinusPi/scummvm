@@ -79,7 +79,7 @@ void MidiParser_SH::parseNextEvent(EventInfo &info) {
 
 //	warning("parseNextEvent");
 
-	byte *playPos = _position._subtracks[0]._playPos;
+	const byte *playPos = _position._subtracks[0]._playPos;
 
 	// there is no delta right at the start of the music data
 	// this order is essential, otherwise notes will get delayed or even go missing
@@ -176,7 +176,7 @@ void MidiParser_SH::parseNextEvent(EventInfo &info) {
 	_position._subtracks[0]._playPos = playPos;
 }
 
-bool MidiParser_SH::loadMusic(byte *musData, uint32 musDataSize) {
+bool MidiParser_SH::loadMusic(const byte *musData, uint32 musDataSize) {
 	Common::StackLock lock(_mutex);
 
 	debugC(kDebugLevelMusic, "Music: loadMusic()");
@@ -185,8 +185,8 @@ bool MidiParser_SH::loadMusic(byte *musData, uint32 musDataSize) {
 	_musData     = musData;
 	_musDataSize = musDataSize;
 
-	byte *headerPtr = _musData + 12; // skip over the already checked SPACE header
-	byte *pos       = headerPtr;
+	const byte *headerPtr = _musData + 12; // skip over the already checked SPACE header
+	const byte *pos       = headerPtr;
 
 	uint16 headerSize = READ_LE_UINT16(headerPtr);
 	assert(headerSize == 0x7F); // Security check
@@ -397,6 +397,14 @@ bool Music::loadSong(const Common::String &songName) {
 
 void Music::syncMusicSettings() {
 	_musicOn = !ConfMan.getBool("mute") && !ConfMan.getBool("music_mute");
+
+	// MIDI synth output is registered with the mixer as kPlainSoundType
+	// (hardcoded in audio/chip.cpp and audio/softsynth/). Map the music
+	// volume to kPlainSoundType so that the Music slider controls MIDI
+	// playback. Engine::defaultSyncSoundSettings() resets kPlainSoundType
+	// to max, so this override must run after it.
+	_musicVolume = ConfMan.getInt("music_volume");
+	_vm->_mixer->setVolumeForSoundType(Audio::Mixer::kPlainSoundType, _musicVolume);
 }
 
 bool Music::playMusic(const Common::String &name) {
@@ -589,6 +597,7 @@ void Music::setMusicVolume(int volume) {
 	_musicVolume = volume;
 	_musicOn = volume > 0;
 	_vm->_mixer->setVolumeForSoundType(Audio::Mixer::kMusicSoundType, volume);
+	_vm->_mixer->setVolumeForSoundType(Audio::Mixer::kPlainSoundType, volume);
 }
 
 void Music::getSongNames(Common::StringArray &songs) {

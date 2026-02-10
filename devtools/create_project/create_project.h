@@ -26,8 +26,8 @@
 #define __has_feature(x) 0 // Compatibility with non-clang compilers.
 #endif
 
-#if __cplusplus < 201103L && (!defined(_MSC_VER) || _MSC_VER < 1700)
-#define override           // Compatibility with non-C++11 compilers.
+#if defined(_MSC_VER) && _MSC_VER < 1900
+#error MSVC support requires MSVC 2015 or newer
 #endif
 
 #include <list>
@@ -298,8 +298,10 @@ struct BuildSetup {
 	bool useStaticDetection = true;    ///< Whether to link detection features inside the executable or not.
 	bool useWindowsUnicode = true;     ///< Whether to use Windows Unicode APIs or ANSI APIs.
 	bool useWindowsSubsystem = false;  ///< Whether to use Windows subsystem or Console subsystem (default: Console)
+	bool appleEmbedded = false;        ///< Whether the build will target iOS or tvOS instead of macOS.
 	bool useXCFramework = false;       ///< Whether to use Apple XCFrameworks instead of static libraries
 	bool useVcpkg = false;             ///< Whether to load libraries from vcpkg or SCUMMVM_LIBS
+	bool useSlnx = false;              ///< Whether to use old .sln or new .slnx format
 	bool win32 = false;                ///< Target is Windows
 
 	bool featureEnabled(const std::string &feature) const;
@@ -566,7 +568,7 @@ public:
 	 * @param project_warnings List of project-specific warnings
 	 * @param version Target project version.
 	 */
-	ProjectProvider(StringList &global_warnings, std::map<std::string, StringList> &project_warnings, StringList &global_errors, const int version = 0);
+	ProjectProvider(StringList &global_warnings, std::map<std::string, StringList> &project_warnings, StringList &global_errors);
 	virtual ~ProjectProvider() {}
 
 	/**
@@ -585,7 +587,6 @@ public:
 	static std::string getLastPathComponent(const std::string &path);
 
 protected:
-	const int _version;                                  ///< Target project version
 	StringList &_globalWarnings;                         ///< Global (ignored) warnings
 	StringList &_globalErrors;                           ///< Global errors (promoted from warnings)
 	std::map<std::string, StringList> &_projectWarnings; ///< Per-project warnings

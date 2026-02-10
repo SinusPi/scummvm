@@ -169,6 +169,7 @@ MODULE_OBJS += \
 	he/basketball/shooting.o \
 	he/basketball/trajectory.o \
 	he/cup_player_he.o \
+	he/font_he.o \
 	he/gfx_comp/aux_comp.o \
 	he/gfx_comp/mrle_comp.o \
 	he/gfx_comp/trle_comp.o \
@@ -216,7 +217,7 @@ MODULE_OBJS += \
 	dialog-sessionselector.o \
 	he/net/net_main.o
 
-ifdef USE_LIBCURL
+ifdef USE_BASIC_NET
 MODULE_OBJS += \
 	he/net/net_lobby.o
 endif

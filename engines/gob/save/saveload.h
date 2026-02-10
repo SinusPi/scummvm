@@ -63,7 +63,7 @@ public:
 	virtual SaveMode getSaveMode(const char *fileName) const;
 
 	/** Returns all files known by the saving system matching a pattern. */
-	virtual Common::List<Common::String> getFilesMatchingPattern(const char *pattern) const;
+	virtual Common::List<Common::Path> getFilesMatchingPattern(const Common::Path &pattern) const;
 
 	/** Returns the file's (virtual) size. */
 	int32 getSize(const char *fileName);
@@ -981,11 +981,18 @@ public:
 	static const uint32 kAdibou2NbrOfApplications = 7;
 	static const uint32 kAdibou2NbrOfSavedDrawings = 12;
 	static const uint32 kAdibou2NbrOfConstructionGameFiles = 3;
+
+	static const uint32 kAdi4NbrOfTempFiles = 9;
+	static const uint32 kAdi4NbrOfApplications = 2; // Only Math/Language for now
+	static const uint32 kAdi4NbrOfSchoolYears = 8;
+	// 4 isolated files, 1 "config" and "statv" file per child, 1 "dip" and "res" file per app x school year x child
+	static const uint32 kAdi4NbrOfGameFiles = 4 + 2 * kChildrenCount + 2 * kAdi4NbrOfApplications * kAdi4NbrOfSchoolYears * kChildrenCount;
+
 	SaveLoad_v7(GobEngine *vm, const char *targetName);
 	~SaveLoad_v7() override;
 
 	SaveMode getSaveMode(const char *fileName) const override;
-	Common::List<Common::String> getFilesMatchingPattern(const char *pattern) const override;
+	Common::List<Common::Path> getFilesMatchingPattern(const Common::Path &pattern) const override;
 
 protected:
 	struct SaveFile {
@@ -1108,10 +1115,10 @@ protected:
 	FakeFileHandler             *_adibou2RelanceHandler;
 	FakeFileHandler             *_adibou2MemHandler;
 	GameFileHandler             *_adibou2AppProgressExtHandler[kAdibou2NbrOfApplications - 4][kChildrenCount];
-	GameFileHandler             *_adibou2AppliIniHandler[kAdibou2NbrOfApplications - 4];
+	GameFileHandler             *_adibou2AppliIniHandler[kAdibou2NbrOfApplications];
 
-	FakeFileHandler             *_addy4BaseHandler[2];
-	FakeFileHandler             *_addy4GrundschuleHandler[11];
+	FakeFileHandler             *_adi4TempFileHandler[kAdi4NbrOfTempFiles];
+	GameFileHandler             *_adi4GameFileHandler[kAdi4NbrOfGameFiles];
 
 	SaveHandler *getHandler(const char *fileName) const override;
 	const char *getDescription(const char *fileName) const override;

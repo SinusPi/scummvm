@@ -34,14 +34,6 @@ namespace Freescape {
 
 EclipseEngine::EclipseEngine(OSystem *syst, const ADGameDescription *gd) : FreescapeEngine(syst, gd) {
 	// These sounds can be overriden by the class of each platform
-	_soundIndexShoot = 8;
-	_soundIndexCollide = 3;
-	_soundIndexFall = 3;
-	_soundIndexClimb = 4;
-	_soundIndexMenu = -1;
-	_soundIndexStart = 9;
-	_soundIndexAreaChange = 5;
-
 	_soundIndexStartFalling = -1;
 	_soundIndexEndFalling = -1;
 
@@ -52,6 +44,12 @@ EclipseEngine::EclipseEngine(OSystem *syst, const ADGameDescription *gd) : Frees
 	_soundIndexForceEndGame = -1;
 	_soundIndexCrushed = -1;
 	_soundIndexMissionComplete = -1;
+
+	_maxEnergy = 27;
+	_maxShield = 50;
+
+	_initialEnergy = 16;
+	_initialShield = 50;
 
 	if (isDOS())
 		initDOS();
@@ -82,16 +80,11 @@ EclipseEngine::EclipseEngine(OSystem *syst, const ADGameDescription *gd) : Frees
 	_angleRotations.push_back(10);
 	_angleRotations.push_back(15);
 
-	_maxEnergy = 27;
-	_maxShield = 50;
-
-	_initialEnergy = 16;
-	_initialShield = 50;
-
 	_endArea = 1;
 	_endEntrance = 33;
 
 	_lastThirtySeconds = 0;
+	_lastFiveSeconds = 0;
 	_lastSecond = -1;
 	_resting = false;
 }
@@ -107,11 +100,38 @@ void EclipseEngine::initGameState() {
 	int seconds, minutes, hours;
 	getTimeFromCountdown(seconds, minutes, hours);
 	_lastThirtySeconds = seconds / 30;
+	_lastFiveSeconds = seconds / 5;
 	_resting = false;
+
+	// Start playing music, if any, in any supported format
+	playMusic("Total Eclipse Theme");
 }
 
 void EclipseEngine::loadAssets() {
 	FreescapeEngine::loadAssets();
+
+	Common::List<int> globalIds = _areaMap[255]->getEntranceIds();
+	for (auto &it : _areaMap) {
+		if (it._value->getAreaID() == 255)
+			continue;
+
+		it._value->addStructure(_areaMap[255]);
+
+		if (isDemo()) {
+			it._value->_name = "  NOW TRAINING  ";
+		}
+
+		for (auto &id : globalIds) {
+			if (it._value->entranceWithID(id))
+				continue;
+
+			Object *obj = _areaMap[255]->entranceWithID(id);
+			assert(obj);
+			assert(obj->getType() == ObjectType::kEntranceType);
+			// The entrance is not in the current area, so we need to add it
+			it._value->addObjectFromArea(id, _areaMap[255]);
+		}
+	}
 
 	_timeoutMessage = _messagesList[1];
 	_noShieldMessage = _messagesList[0];
@@ -150,8 +170,9 @@ bool EclipseEngine::checkIfGameEnded() {
 			if (isDOS())
 				playSoundFx(4, false);
 			else
-				playSound(_soundIndexStartFalling, false);
+				playSound(_soundIndexStartFalling, false, _soundFxHandle);
 
+			stopMovement();
 			// If shield is less than 11 after a fall, the game ends
 			if (_gameStateVars[k8bitVariableShield] > 15 + 11) {
 				_gameStateVars[k8bitVariableShield] -= 15;
@@ -193,7 +214,7 @@ void EclipseEngine::endGame() {
 
 	if (_endGameKeyPressed && (_countdown == 0 || _countdown == -3600)) {
 		if (isSpectrum())
-			playSound(5, true);
+			playSound(5, true, _soundFxHandle);
 		_gameStateControl = kFreescapeGameStateRestart;
 	}
 	_endGameKeyPressed = false;
@@ -203,17 +224,17 @@ void EclipseEngine::initKeymaps(Common::Keymap *engineKeyMap, Common::Keymap *in
 	FreescapeEngine::initKeymaps(engineKeyMap, infoScreenKeyMap, target);
 	Common::Action *act;
 
-	act = new Common::Action("SAVE", _("Save Game"));
+	act = new Common::Action("SAVE", _("Save game"));
 	act->setCustomEngineActionEvent(kActionSave);
 	act->addDefaultInputMapping("s");
 	infoScreenKeyMap->addAction(act);
 
-	act = new Common::Action("LOAD", _("Load Game"));
+	act = new Common::Action("LOAD", _("Load game"));
 	act->setCustomEngineActionEvent(kActionLoad);
 	act->addDefaultInputMapping("l");
 	infoScreenKeyMap->addAction(act);
 
-	act = new Common::Action("QUIT", _("Quit Game"));
+	act = new Common::Action("QUIT", _("Quit game"));
 	act->setCustomEngineActionEvent(kActionEscape);
 	if (isSpectrum())
 		act->addDefaultInputMapping("1");
@@ -250,11 +271,13 @@ void EclipseEngine::initKeymaps(Common::Keymap *engineKeyMap, Common::Keymap *in
 
 	act = new Common::Action("TGGLHEIGHT", _("Toggle Height"));
 	act->setCustomEngineActionEvent(kActionToggleRiseLower);
+	act->addDefaultInputMapping("JOY_B");
 	act->addDefaultInputMapping("h");
 	engineKeyMap->addAction(act);
 
 	act = new Common::Action("REST", _("Rest"));
 	act->setCustomEngineActionEvent(kActionRest);
+	act->addDefaultInputMapping("JOY_Y");
 	act->addDefaultInputMapping("r");
 	engineKeyMap->addAction(act);
 
@@ -284,9 +307,12 @@ void EclipseEngine::gotoArea(uint16 areaID, int entranceID) {
 	_lastPosition = _position;
 
 	if (areaID == _startArea && entranceID == _startEntrance) {
-		playSound(_soundIndexStart, true);
+		if (_pitch >= 180)
+			_pitch = 360 - _pitch;
+		playSound(_soundIndexStart, false, _soundFxHandle);
 		if (isEclipse2()) {
 			_gameStateControl = kFreescapeGameStateStart;
+			_pitch = -10;
 		}
 
 	} if (areaID == _endArea && entranceID == _endEntrance) {
@@ -296,7 +322,7 @@ void EclipseEngine::gotoArea(uint16 areaID, int entranceID) {
 		else
 			_pitch = 10;
 	} else {
-		playSound(_soundIndexAreaChange, false);
+		playSound(_soundIndexAreaChange, false, _soundFxHandle);
 	}
 
 	_gfx->_keyColor = 0;
@@ -424,7 +450,7 @@ void EclipseEngine::drawInfoMenu() {
 					saveGameDialog();
 					_gfx->setViewport(_viewArea);
 				} else if (isDOS() && event.customType == kActionToggleSound) {
-					playSound(_soundIndexMenu, true);
+					playSound(_soundIndexMenu, false, _soundFxHandle);
 				} else if ((isDOS() || isCPC() || isSpectrum()) && event.customType == kActionEscape) {
 					_forceEndGame = true;
 					cont = false;
@@ -699,23 +725,30 @@ void EclipseEngine::drawSensorShoot(Sensor *sensor) {
 	}
 }
 
-Common::String EclipseEngine::getScoreString(int score) {
+void EclipseEngine::drawScoreString(int score, int x, int y, uint32 front, uint32 back, Graphics::Surface *surface) {
 	Common::String scoreStr = Common::String::format("%07d", score);
 
 	if (isDOS() || isCPC() || isSpectrum()) {
 		scoreStr = shiftStr(scoreStr, 'Z' - '0' + 1);
-		if (_renderMode == Common::RenderMode::kRenderEGA || isSpectrum())
-			return scoreStr;
+		if (_renderMode == Common::RenderMode::kRenderEGA || isSpectrum()) {
+			drawStringInSurface(scoreStr, x, y, front, back, surface);
+			return;
+		}
+
 	}
-	Common::String encodedScoreStr;
+
+	// Start in x,y and draw each digit, from left to right, adding a gap every 3 digits
+	int gapSize = isC64() ? 8 : 4;
 
 	for (int i = 0; i < int(scoreStr.size()); i++) {
-		encodedScoreStr.insertChar(scoreStr[int(scoreStr.size()) - i - 1], 0);
-		if ((i + 1) % 3 == 0 && i > 0)
-		encodedScoreStr.insertChar(',', 0);
+		drawStringInSurface(Common::String(scoreStr[i]), x, y, front, back, surface);
+		x += 8;
+		if ((i - scoreStr.size() + 1) % 3 == 1)
+			x += gapSize;
 	}
-	return encodedScoreStr;
+
 }
+
 
 void EclipseEngine::updateTimeVariables() {
 	if (isEclipse2() && _gameStateControl == kFreescapeGameStateStart) {
@@ -728,6 +761,13 @@ void EclipseEngine::updateTimeVariables() {
 	// This function only executes "on collision" room/global conditions
 	int seconds, minutes, hours;
 	getTimeFromCountdown(seconds, minutes, hours);
+
+
+	if (_lastFiveSeconds != seconds / 5) {
+		_lastFiveSeconds = seconds / 5;
+		executeLocalGlobalConditions(false, false, true);
+	}
+
 	if (_lastThirtySeconds != seconds / 30) {
 		_lastThirtySeconds = seconds / 30;
 
@@ -738,8 +778,6 @@ void EclipseEngine::updateTimeVariables() {
 		if (_gameStateVars[k8bitVariableShield] < _maxShield) {
 			_gameStateVars[k8bitVariableShield] += 1;
 		}
-
-		executeLocalGlobalConditions(false, false, true);
 	}
 
 	if (isEclipse() && isSpectrum() && _currentArea->getAreaID() == 42) {

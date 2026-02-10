@@ -28,14 +28,22 @@ namespace Freescape {
 
 void DrillerEngine::initZX() {
 	_viewArea = Common::Rect(56, 20, 264, 124);
+	_soundIndexShoot = 1;
+	_soundIndexCollide = 2;
+	_soundIndexStepUp = 3;
+	_soundIndexStepDown = 3;
+	_soundIndexMenu = 6;
 	_soundIndexAreaChange = 10;
+	_soundIndexHit = 7;
+	_soundIndexFallen = 9;
+	_soundIndexMissionComplete = 13;
 }
 
 void DrillerEngine::loadAssetsZXFullGame() {
 	Common::File file;
 	file.open("driller.zx.title");
 	if (file.isOpen()) {
-		_title = loadAndCenterScrImage(&file);
+		_title = loadAndConvertScrImage(&file);
 	} else
 		error("Unable to find driller.zx.title");
 
@@ -43,7 +51,7 @@ void DrillerEngine::loadAssetsZXFullGame() {
 
 	file.open("driller.zx.border");
 	if (file.isOpen()) {
-		_border = loadAndCenterScrImage(&file);
+		_border = loadAndConvertScrImage(&file);
 	} else
 		error("Unable to find driller.zx.border");
 	file.close();

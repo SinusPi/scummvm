@@ -188,6 +188,10 @@ int main(int argc, char *argv[]) {
 			}
 
 			projectType = kProjectXcode;
+		} else if (!std::strcmp(argv[i], "--ios")) {
+			setup.appleEmbedded = true;
+		} else if (!std::strcmp(argv[i], "--tvos")) {
+			setup.appleEmbedded = true;
 #endif
 
 		} else if (!std::strcmp(argv[i], "--msvc-version")) {
@@ -307,6 +311,8 @@ int main(int argc, char *argv[]) {
 			setup.useSDL = kSDLVersion3;
 		} else if (!std::strcmp(argv[i], "--use-canonical-lib-names")) {
 			// Deprecated: Kept here so it doesn't error
+		} else if (!std::strcmp(argv[i], "--use-slnx")) {
+			setup.useSlnx = true;
 		} else if (!std::strcmp(argv[i], "--use-windows-unicode")) {
 			setup.useWindowsUnicode = true;
 		} else if (!std::strcmp(argv[i], "--use-windows-ansi")) {
@@ -401,7 +407,8 @@ int main(int argc, char *argv[]) {
 	}
 
 	// Disable unused features / components
-	disableComponents(setup.components);
+	if (!setup.tests)
+		disableComponents(setup.components);
 
 	// Handle hard-coded component logic
 	fixupComponents(setup);
@@ -446,14 +453,22 @@ int main(int argc, char *argv[]) {
 
 	if (projectType == kProjectXcode) {
 		setup.defines.push_back("POSIX");
-		// Define both MACOSX, and IPHONE, but only one of them will be associated to the
-		// correct target by the Xcode project provider.
-		// This define will help catching up target-dependent files, like "browser_osx.mm"
-		// The suffix ("_osx", or "_ios") will be used by the project provider to filter out
-		// the files, according to the target.
-		setup.defines.push_back("MACOSX");
-		setup.defines.push_back("IPHONE");
-		setup.defines.push_back("SCUMMVM_NEON");
+		if (setup.appleEmbedded) {
+			setup.defines.push_back("IPHONE");
+			setup.defines.push_back("IPHONE_IOS7");
+			setup.defines.push_back("SCUMMVM_NEON");
+		} else {
+			setup.defines.push_back("MACOSX");
+			// We have two TTS backends, one that is deprecated in macOS 11 and a newer one
+			// that requires macOS 10.14 minimum. Use the new one when compiling for ARM, and
+			// otherwise (PPC, Intel) use the old one. We assume the current arch to compile
+			// create_project is also the one we will be compiling ScummVM for.
+#if !defined(__aarch64__)
+			if (getFeatureBuildState("tts", setup.features)) {
+				setup.defines.push_back("USE_NS_SPEECH_SYNTHESIZER");
+			}
+#endif
+		}
 	} else if (projectType == kProjectMSVC || projectType == kProjectCodeBlocks) {
 		setup.defines.push_back("WIN32");
 		setup.win32 = true;
@@ -479,18 +494,20 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	setup.defines.push_back("SDL_BACKEND");
-	if (setup.useSDL == kSDLVersion1) {
-		cout << "\nBuilding against SDL 1.2\n\n";
-	} else if (setup.useSDL == kSDLVersion2) {
-		cout << "\nBuilding against SDL 2\n\n";
-		setup.defines.push_back("USE_SDL2");
-	} else if (setup.useSDL == kSDLVersion3) {
-		cout << "\nBuilding against SDL 3\n\n";
-		setup.defines.push_back("USE_SDL3");
-	} else {
-		std::cerr << "ERROR: Unsupported SDL version\n";
-		return -1;
+	if (projectType != kProjectXcode || !setup.appleEmbedded) {
+		setup.defines.push_back("SDL_BACKEND");
+		if (setup.useSDL == kSDLVersion1) {
+			cout << "\nBuilding against SDL 1.2\n\n";
+		} else if (setup.useSDL == kSDLVersion2) {
+			cout << "\nBuilding against SDL 2\n\n";
+			setup.defines.push_back("USE_SDL2");
+		} else if (setup.useSDL == kSDLVersion3) {
+			cout << "\nBuilding against SDL 3\n\n";
+			setup.defines.push_back("USE_SDL3");
+		} else {
+			std::cerr << "ERROR: Unsupported SDL version\n";
+			return -1;
+		}
 	}
 
 	if (setup.useStaticDetection) {
@@ -569,6 +586,11 @@ int main(int argc, char *argv[]) {
 		if (!msvc) {
 			std::cerr << "ERROR: Unsupported version: \"" << msvcVersion << "\" passed to \"--msvc-version\"!\n";
 			return -1;
+		}
+
+		if (setup.useSlnx && msvc->version < 17) {
+			std::cerr << "ERROR: Using SLNX solution files requires Visual Studio 2022 17.14 or higher\n";
+			return 1;
 		}
 
 		////////////////////////////////////////////////////////////////////////////
@@ -812,7 +834,9 @@ void displayHelp(const char *exe) {
 	        " --tests                    Create project files for the tests\n"
 	        "                            (ignores --build-events and --installer, as well as engine settings)\n"
 	        "                            (default: false)\n"
-	        " --use-windows-unicode      Use Windows Unicode APIs\n"
+			" --use-slnx                 Use new XML-based Visual Studio solution format\n"
+			"                            (default: false)\n"
+			" --use-windows-unicode      Use Windows Unicode APIs\n"
 	        "                            (default: true)\n"
 	        " --use-windows-ansi         Use Windows ANSI APIs\n"
 	        "                            (default: false)\n"
@@ -822,6 +846,10 @@ void displayHelp(const char *exe) {
 			"                            " LIBS_DEFINE " environment variable\n "
 	        " --vcpkg                    Use vcpkg-provided libraries instead of pre-built libraries\n"
 	        "                            (default: false)\n"
+	        "\n"
+	        "XCode specific settings:\n"
+	        " --ios                      build for iOS or tvOS\n"
+	        " --tvos                     build for iOS or tvOS\n"
 	        "\n"
 	        "Engines settings:\n"
 	        " --list-engines             list all available engines and their default state\n"
@@ -1184,7 +1212,10 @@ const Feature s_features[] = {
 	{             "opengl",                    "USE_OPENGL", false, true,  "OpenGL support" },
 	{"opengl_game_classic",               "USE_OPENGL_GAME", false, true,  "OpenGL support (classic) in 3d games" },
 	{"opengl_game_shaders",            "USE_OPENGL_SHADERS", false, true,  "OpenGL support (shaders) in 3d games" },
+	{             "tinygl",                    "USE_TINYGL", false, true,  "TinyGL support (software) in 3d games" },
 	{            "taskbar",                   "USE_TASKBAR", false, true,  "Taskbar integration support" },
+	{               "http",                      "USE_HTTP", false, true,  "HTTP client support" },
+	{          "basic-net",                 "USE_BASIC_NET", false, true,  "Basic network support" },
 	{              "cloud",                     "USE_CLOUD", false, true,  "Cloud integration support" },
 	{               "enet",                      "USE_ENET", false, true,  "ENet networking support" },
 	{        "translation",               "USE_TRANSLATION", false, true,  "Translation support" },
@@ -1218,13 +1249,11 @@ const Tool s_tools[] = {
 
 const MSVCVersion s_msvc[] = {
 //    Ver    Name                     Solution                     Project    Toolset    LLVM
-	{ 10,    "Visual Studio 2010",    "11.00",          "2010",     "4.0",    "v100",    "LLVM-vs2010" },
-	{ 11,    "Visual Studio 2012",    "11.00",          "2012",     "4.0",    "v110",    "LLVM-vs2012" },
-	{ 12,    "Visual Studio 2013",    "12.00",          "2013",    "12.0",    "v120",    "LLVM-vs2013" },
 	{ 14,    "Visual Studio 2015",    "12.00",            "14",    "14.0",    "v140",    "LLVM-vs2014" },
 	{ 15,    "Visual Studio 2017",    "12.00",            "15",    "15.0",    "v141",    "llvm"        },
 	{ 16,    "Visual Studio 2019",    "12.00",    "Version 16",    "16.0",    "v142",    "llvm"        },
-	{ 17,    "Visual Studio 2022",    "12.00",    "Version 17",    "17.0",    "v143",    "llvm"        }
+	{ 17,    "Visual Studio 2022",    "12.00",    "Version 17",    "17.0",    "v143",    "llvm"        },
+	{ 18,    "Visual Studio 2026",    "12.00",    "Version 18",    "18.0",    "v145",    "llvm"        }
 };
 
 const char *s_msvc_arch_names[] = {"arm64", "x86", "x64"};
@@ -1285,6 +1314,18 @@ FeatureList getAllFeatures() {
  * This means disabling conflicting features, enabling meta-features, ...
  */
 static void fixupFeatures(ProjectType projectType, BuildSetup &setup) {
+#ifdef ENABLE_XCODE
+	// IMGUI and NASM are not available on Xcode
+	if (projectType == kProjectXcode) {
+		setFeatureBuildState("imgui", setup.features, false);
+		setFeatureBuildState("nasm", setup.features, false);
+	}
+	// OpenGL classic is not available on iOS/tvOS
+	if (projectType == kProjectXcode && setup.appleEmbedded) {
+		setFeatureBuildState("opengl_game_classic", setup.features, false);
+	}
+#endif
+
 	// Vorbis and Tremor can not be enabled simultaneously
 	if (getFeatureBuildState("tremor", setup.features)) {
 		setFeatureBuildState("vorbis", setup.features, false);
@@ -1300,6 +1341,18 @@ static void fixupFeatures(ProjectType projectType, BuildSetup &setup) {
 		setFeatureBuildState("mikmod", setup.features, false);
 	}
 
+	// Only libcurl provides basic network and HTTP client for now
+	// (or Emscripten and Android but they are not supported by create_project)
+	if (!getFeatureBuildState("libcurl", setup.features)) {
+		setFeatureBuildState("basic-net", setup.features, false);
+		setFeatureBuildState("http", setup.features, false);
+	}
+
+	// Without an HTTP client there is no cloud feature
+	if (!getFeatureBuildState("http", setup.features)) {
+		setFeatureBuildState("cloud", setup.features, false);
+	}
+
 	// These features depend on OpenGL
 	if (!getFeatureBuildState("opengl", setup.features)) {
 		setFeatureBuildState("opengl_game_classic", setup.features, false);
@@ -1307,18 +1360,13 @@ static void fixupFeatures(ProjectType projectType, BuildSetup &setup) {
 	}
 
 	// Check IMGUI dependencies
-	if (!getFeatureBuildState("opengl", setup.features) ||
+	if (getFeatureBuildState("imgui", setup.features) && (
+		!getFeatureBuildState("opengl", setup.features) ||
 		!getFeatureBuildState("freetype2", setup.features) ||
-		setup.useSDL == kSDLVersion1) {
+		setup.useSDL == kSDLVersion1)) {
 		std::cerr << "WARNING: imgui requires opengl, freetype2 and sdl2+\n";
 		setFeatureBuildState("imgui", setup.features, false);
 	}
-	// IMGUI is not available on Xcode
-#ifdef ENABLE_XCODE
-	if (projectType == kProjectXcode) {
-		setFeatureBuildState("imgui", setup.features, false);
-	}
-#endif
 
 	// Calculate 3D feature state
 	setFeatureBuildState("3d", setup.features,
@@ -1859,8 +1907,8 @@ FileNode *scanFiles(const std::string &dir, const StringList &includeList, const
 //////////////////////////////////////////////////////////////////////////
 // Project Provider methods
 //////////////////////////////////////////////////////////////////////////
-ProjectProvider::ProjectProvider(StringList &global_warnings, std::map<std::string, StringList> &project_warnings, StringList &global_errors, const int version)
-	: _version(version), _globalWarnings(global_warnings), _projectWarnings(project_warnings), _globalErrors(global_errors) {
+ProjectProvider::ProjectProvider(StringList &global_warnings, std::map<std::string, StringList> &project_warnings, StringList &global_errors)
+	: _globalWarnings(global_warnings), _projectWarnings(project_warnings), _globalErrors(global_errors) {
 }
 
 void ProjectProvider::createProject(BuildSetup &setup) {
@@ -1946,7 +1994,9 @@ void ProjectProvider::createProject(BuildSetup &setup) {
 		pchEx.clear();
 		// File list for the Project file
 		createModuleList(setup.srcDir + "/backends", setup.defines, setup.testDirs, in, ex, pchDirs, pchEx);
-		createModuleList(setup.srcDir + "/backends/platform/sdl", setup.defines, setup.testDirs, in, ex, pchDirs, pchEx);
+		if (std::find(setup.defines.begin(), setup.defines.end(), "SDL_BACKEND") != setup.defines.end()) {
+			createModuleList(setup.srcDir + "/backends/platform/sdl", setup.defines, setup.testDirs, in, ex, pchDirs, pchEx);
+		}
 		createModuleList(setup.srcDir + "/base", setup.defines, setup.testDirs, in, ex, pchDirs, pchEx);
 		createModuleList(setup.srcDir + "/common", setup.defines, setup.testDirs, in, ex, pchDirs, pchEx);
 		createModuleList(setup.srcDir + "/common/compression", setup.defines, setup.testDirs, in, ex, pchDirs, pchEx);
@@ -1954,6 +2004,7 @@ void ProjectProvider::createProject(BuildSetup &setup) {
 		createModuleList(setup.srcDir + "/common/lua", setup.defines, setup.testDirs, in, ex, pchDirs, pchEx);
 		createModuleList(setup.srcDir + "/engines", setup.defines, setup.testDirs, in, ex, pchDirs, pchEx);
 		createModuleList(setup.srcDir + "/graphics", setup.defines, setup.testDirs, in, ex, pchDirs, pchEx);
+		createModuleList(setup.srcDir + "/graphics/mfc", setup.defines, setup.testDirs, in, ex, pchDirs, pchEx);
 		createModuleList(setup.srcDir + "/gui", setup.defines, setup.testDirs, in, ex, pchDirs, pchEx);
 		createModuleList(setup.srcDir + "/audio", setup.defines, setup.testDirs, in, ex, pchDirs, pchEx);
 		createModuleList(setup.srcDir + "/video", setup.defines, setup.testDirs, in, ex, pchDirs, pchEx);
@@ -1979,7 +2030,6 @@ void ProjectProvider::createProject(BuildSetup &setup) {
 			in.push_back(setup.srcDir + "/LICENSES/COPYING.Apache");
 			in.push_back(setup.srcDir + "/LICENSES/COPYING.BSD");
 			in.push_back(setup.srcDir + "/LICENSES/COPYING.BSL");
-			in.push_back(setup.srcDir + "/LICENSES/COPYING.FREEFONT");
 			in.push_back(setup.srcDir + "/LICENSES/COPYING.GLAD");
 			in.push_back(setup.srcDir + "/LICENSES/COPYING.ISC");
 			in.push_back(setup.srcDir + "/LICENSES/COPYING.LGPL");
@@ -2005,7 +2055,7 @@ void ProjectProvider::createProject(BuildSetup &setup) {
 
 	// In case we create the main ScummVM project files we will need to
 	// generate engines/plugins_table.h & engines/detection_table.h
-	if (!setup.tests && !setup.devTools) {
+	if (!setup.devTools) {
 		createEnginePluginsTable(setup);
 	}
 }
@@ -2382,7 +2432,9 @@ void ProjectProvider::createModuleList(const std::string &moduleDir, const Strin
 				FileList files = listDirectory(folder);
 
 				// Add to list of test folders
-				testDirs.push_back(folder);
+				if (shouldInclude.top()) {
+					testDirs.push_back(folder);
+				}
 
 				for (FileList::const_iterator f = files.begin(); f != files.end(); ++f) {
 					if (f->isDirectory)

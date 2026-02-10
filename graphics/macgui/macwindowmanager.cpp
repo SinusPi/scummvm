@@ -21,6 +21,7 @@
 #include "common/array.h"
 #include "common/list.h"
 #include "common/system.h"
+#include "common/text-to-speech.h"
 
 #include "graphics/cursorman.h"
 #include "graphics/managed_surface.h"
@@ -97,6 +98,27 @@ static const byte macCursorBeam[] = {
 	3, 3, 0, 3, 0, 3, 3, 3, 3, 3, 3,
 	0, 0, 3, 3, 3, 0, 0, 3, 3, 3, 3,
 };
+
+static const byte macCursorBeamMask[] = {
+	2, 2, 0, 0, 0, 2, 2, 0, 0, 0, 0,
+	0, 0, 2, 0, 2, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 2, 0, 2, 0, 0, 0, 0, 0, 0,
+	2, 2, 0, 0, 0, 2, 2, 0, 0, 0, 0,
+};
+
+
 static const byte macCursorCrossHair[] = {
 	3, 3, 3, 3, 3, 0, 3, 3, 3, 3, 3,
 	3, 3, 3, 3, 3, 0, 3, 3, 3, 3, 3,
@@ -247,6 +269,8 @@ MacWindowManager::MacWindowManager(uint32 mode, MacPatterns *patterns, Common::L
 		CursorMan.showMouse(true);
 	}
 
+	_ttsEnabled = false;
+
 	loadDataBundle();
 	setDesktopMode(mode);
 }
@@ -396,8 +420,8 @@ MacWindow *MacWindowManager::addWindow(bool scrollable, bool resizable, bool edi
 	return w;
 }
 
-MacTextWindow *MacWindowManager::addTextWindow(const MacFont *font, int fgcolor, int bgcolor, int maxWidth, TextAlign textAlignment, MacMenu *menu, bool cursorHandler) {
-	MacTextWindow *w = new MacTextWindow(this, font, fgcolor, bgcolor, maxWidth, textAlignment, menu, cursorHandler);
+MacTextWindow *MacWindowManager::addTextWindow(const MacFont *font, int fgcolor, int bgcolor, int maxWidth, TextAlign textAlignment, MacMenu *menu, int padding) {
+	MacTextWindow *w = new MacTextWindow(this, font, fgcolor, bgcolor, maxWidth, textAlignment, menu, padding);
 
 	addWindowInitialized(w);
 
@@ -406,8 +430,8 @@ MacTextWindow *MacWindowManager::addTextWindow(const MacFont *font, int fgcolor,
 	return w;
 }
 
-MacTextWindow *MacWindowManager::addTextWindow(const Font *font, int fgcolor, int bgcolor, int maxWidth, TextAlign textAlignment, MacMenu *menu, bool cursorHandler) {
-	MacTextWindow *w = new MacTextWindow(this, font, fgcolor, bgcolor, maxWidth, textAlignment, menu, cursorHandler);
+MacTextWindow *MacWindowManager::addTextWindow(const Font *font, int fgcolor, int bgcolor, int maxWidth, TextAlign textAlignment, MacMenu *menu, int padding) {
+	MacTextWindow *w = new MacTextWindow(this, font, fgcolor, bgcolor, maxWidth, textAlignment, menu, padding);
 
 	addWindowInitialized(w);
 
@@ -1080,11 +1104,16 @@ bool MacWindowManager::processEvent(Common::Event &event) {
 		return true;
 	}
 
+	if (event.type == Common::EVENT_WHEELUP || event.type == Common::EVENT_WHEELDOWN) {
+		MacWindow *w = findWindowAtPoint(event.mouse.x, event.mouse.y);
+		if (w) setActiveWindow(w->getId());
+	}
+
 	if (_activeWindow != -1) {
 		if ((_windows[_activeWindow]->isEditable() && _windows[_activeWindow]->getType() == kWindowWindow &&
 				 ((MacWindow *)_windows[_activeWindow])->getInnerDimensions().contains(event.mouse.x, event.mouse.y)) ||
 				(_activeWidget && _activeWidget->isEditable() &&
-				 _activeWidget->getDimensions().contains(event.mouse.x, event.mouse.y))) {
+				 _activeWidget->getAbsoluteDimensions().contains(event.mouse.x, event.mouse.y))) {
 			if (getCursorType() != kMacCursorBeam) {
 				_tempType = getCursorType();
 				_inEditableArea = true;
@@ -1106,7 +1135,7 @@ bool MacWindowManager::processEvent(Common::Event &event) {
 		if (_lockedWidget != nullptr && w != _lockedWidget)
 			continue;
 		if (w->hasAllFocus() || (event.type == Common::EVENT_KEYDOWN) ||
-				w->getDimensions().contains(event.mouse.x, event.mouse.y)) {
+				(w->isVisible() && w->getDimensions().contains(event.mouse.x, event.mouse.y))) {
 			if ((event.type == Common::EVENT_LBUTTONDOWN || event.type == Common::EVENT_LBUTTONUP) && (!_backgroundWindow || w != _backgroundWindow))
 				setActiveWindow(w->getId());
 
@@ -1281,19 +1310,22 @@ void MacWindowManager::pushCursor(MacCursorType type, Cursor *cursor) {
 		CursorMan.pushCursorPalette(cursorPalette, 0, 2);
 		break;
 	case kMacCursorBeam:
-		CursorMan.pushCursor(macCursorBeam, 11, 16, 1, 1, 3);
+		if (g_system->getFeatureState(OSystem::kFeatureCursorMaskInvert))
+			CursorMan.replaceCursor(macCursorBeam, 11, 16, 3, 8, 3, false, NULL, macCursorBeamMask);
+		else
+			CursorMan.replaceCursor(macCursorBeam, 11, 16, 3, 8, 3);
 		CursorMan.pushCursorPalette(cursorPalette, 0, 2);
 		break;
 	case kMacCursorCrossHair:
-		CursorMan.pushCursor(macCursorCrossHair, 11, 16, 1, 1, 3);
+		CursorMan.pushCursor(macCursorCrossHair, 11, 16, 5, 5, 3);
 		CursorMan.pushCursorPalette(cursorPalette, 0, 2);
 		break;
 	case kMacCursorCrossBar:
-		CursorMan.pushCursor(macCursorCrossBar, 11, 16, 1, 1, 3);
+		CursorMan.pushCursor(macCursorCrossBar, 11, 16, 4, 4, 3);
 		CursorMan.pushCursorPalette(cursorPalette, 0, 2);
 		break;
 	case kMacCursorWatch:
-		CursorMan.pushCursor(macCursorWatch, 11, 16, 1, 1, 3);
+		CursorMan.pushCursor(macCursorWatch, 11, 16, 5, 8, 3);
 		CursorMan.pushCursorPalette(cursorPalette, 0, 2);
 		break;
 	case kMacCursorCustom:
@@ -1319,19 +1351,22 @@ void MacWindowManager::replaceCursor(MacCursorType type, Cursor *cursor) {
 		CursorMan.replaceCursorPalette(cursorPalette, 0, 2);
 		break;
 	case kMacCursorBeam:
-		CursorMan.replaceCursor(macCursorBeam, 11, 16, 1, 1, 3);
+		if (g_system->getFeatureState(OSystem::kFeatureCursorMaskInvert))
+			CursorMan.replaceCursor(macCursorBeam, 11, 16, 3, 8, 3, false, NULL, macCursorBeamMask);
+		else
+			CursorMan.replaceCursor(macCursorBeam, 11, 16, 3, 8, 3);
 		CursorMan.replaceCursorPalette(cursorPalette, 0, 2);
 		break;
 	case kMacCursorCrossHair:
-		CursorMan.replaceCursor(macCursorCrossHair, 11, 16, 1, 1, 3);
+		CursorMan.replaceCursor(macCursorCrossHair, 11, 16, 5, 5, 3);
 		CursorMan.replaceCursorPalette(cursorPalette, 0, 2);
 		break;
 	case kMacCursorCrossBar:
-		CursorMan.replaceCursor(macCursorCrossBar, 11, 16, 1, 1, 3);
+		CursorMan.replaceCursor(macCursorCrossBar, 11, 16, 4, 4, 3);
 		CursorMan.replaceCursorPalette(cursorPalette, 0, 2);
 		break;
 	case kMacCursorWatch:
-		CursorMan.replaceCursor(macCursorWatch, 11, 16, 1, 1, 3);
+		CursorMan.replaceCursor(macCursorWatch, 11, 16, 5, 8, 3);
 		CursorMan.replaceCursorPalette(cursorPalette, 0, 2);
 		break;
 	case kMacCursorCustom:
@@ -1529,6 +1564,17 @@ const Common::U32String::value_type *readHex(uint16 *res, const Common::U32Strin
 	}
 
 	return s;
+}
+
+void MacWindowManager::sayText(const Common::U32String &text) const {
+	Common::TextToSpeechManager *ttsMan = g_system->getTextToSpeechManager();
+	if (ttsMan && _ttsEnabled) {
+		ttsMan->say(text, Common::TextToSpeechManager::INTERRUPT);
+	}
+}
+
+void MacWindowManager::setTTSEnabled(bool enabled) {
+	_ttsEnabled = enabled;
 }
 
 

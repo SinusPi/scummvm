@@ -127,9 +127,7 @@ static void clear_persistent_msg_list(machine *m) {
 
 static msgRequest *new_msgRequest() {
 	msgRequest *newMsg = (msgRequest *)mem_alloc(sizeof(msgRequest), "msgRequest");
-	if (newMsg == nullptr) {
-		ws_LogErrorMsg(FL, "Failed to mem_alloc() %d bytes.", sizeof(msgRequest));
-	}
+
 	return newMsg;
 }
 
@@ -157,7 +155,7 @@ static void op_AFTER(machine *m, int32 *pcOffset) {
 	int32 myElapsedTime;
 
 	if (!_GWS(myArg2)) {
-		ws_Error(m, ERR_MACH, 0x0261, "functionality: after arg1 {...}");
+		ws_Error(m, "functionality: after arg1 {...}");
 	}
 
 	if (_GWS(myArg3)) {
@@ -172,7 +170,7 @@ static void op_AFTER(machine *m, int32 *pcOffset) {
 
 static void op_ON_END_SEQ(machine *m, int32 *pcOffset) {
 	if (!_GWS(myArg1)) {
-		ws_Error(m, ERR_MACH, 0x0260, "on_seq_end() failed.");
+		ws_Error(m, "on_seq_end() failed.");
 	}
 	ws_OnEndSeqRequest(m->myAnim8, *pcOffset, *_GWS(myArg1) >> 14);
 	*pcOffset += (int32)*_GWS(myArg1) >> 14;
@@ -187,11 +185,11 @@ static void op_ON_END_SEQ(machine *m, int32 *pcOffset) {
 static void op_ON_MSG(machine *m, int32 *pcOffset) {
 	msgRequest *myMsg;
 	if (!_GWS(myArg1)) {
-		ws_Error(m, ERR_MACH, 0x0260, "on_msg() failed.");
+		ws_Error(m, "on_msg() failed.");
 	}
 
 	if ((myMsg = new_msgRequest()) == nullptr) {
-		ws_Error(m, ERR_MACH, 0x02fe, "on_msg() failed.");
+		ws_Error(m, "on_msg() failed.");
 		return;
 	}
 
@@ -220,7 +218,7 @@ static void op_ON_P_MSG(machine *m, int32 *pcOffset) {
 	frac16 msgValue;
 
 	if (!_GWS(myArg2)) {
-		ws_Error(m, ERR_MACH, 0x0261, "functionality: on_p_msg arg1 {...}");
+		ws_Error(m, "functionality: on_p_msg arg1 {...}");
 	}
 
 	// Get the values for msgHash and msgValue from the args...
@@ -254,7 +252,7 @@ static void op_ON_P_MSG(machine *m, int32 *pcOffset) {
 	} else {
 		// Else a new msg has to be created
 		if ((myMsg = new_msgRequest()) == nullptr) {
-			ws_Error(m, ERR_MACH, 0x02fe, "on_p_msg() failed.");
+			ws_Error(m, "on_p_msg() failed.");
 			return;
 		}
 
@@ -277,7 +275,7 @@ static void op_ON_P_MSG(machine *m, int32 *pcOffset) {
 
 static void op_SWITCH_LT(machine *m, int32 *pcOffset) {
 	if (!_GWS(myArg3)) {
-		ws_Error(m, ERR_MACH, 0x0262, "functionality: switch (arg1 < arg2) {...}");
+		ws_Error(m, "functionality: switch (arg1 < arg2) {...}");
 	}
 	if (*_GWS(myArg2) >= *_GWS(myArg3)) {
 		*pcOffset += (int32)*_GWS(myArg1) >> 14;
@@ -286,7 +284,7 @@ static void op_SWITCH_LT(machine *m, int32 *pcOffset) {
 
 static void op_SWITCH_LE(machine *m, int32 *pcOffset) {
 	if (!_GWS(myArg3)) {
-		ws_Error(m, ERR_MACH, 0x0262, "functionality: switch (arg1 <= arg2) {...}");
+		ws_Error(m, "functionality: switch (arg1 <= arg2) {...}");
 	}
 	if (*_GWS(myArg2) > *_GWS(myArg3)) {
 		*pcOffset += (int32)*_GWS(myArg1) >> 14;
@@ -295,7 +293,7 @@ static void op_SWITCH_LE(machine *m, int32 *pcOffset) {
 
 static void op_SWITCH_EQ(machine *m, int32 *pcOffset) {
 	if (!_GWS(myArg3)) {
-		ws_Error(m, ERR_MACH, 0x0262, "functionality: switch (arg1 == arg2) {...}");
+		ws_Error(m, "functionality: switch (arg1 == arg2) {...}");
 	}
 	if (*_GWS(myArg2) != *_GWS(myArg3)) {
 		*pcOffset += (int32)*_GWS(myArg1) >> 14;
@@ -304,7 +302,7 @@ static void op_SWITCH_EQ(machine *m, int32 *pcOffset) {
 
 static void op_SWITCH_NE(machine *m, int32 *pcOffset) {
 	if (!_GWS(myArg3)) {
-		ws_Error(m, ERR_MACH, 0x0262, "functionality: switch (arg1 != arg2) {...}");
+		ws_Error(m, "functionality: switch (arg1 != arg2) {...}");
 	}
 	if (*_GWS(myArg2) == *_GWS(myArg3)) {
 		*pcOffset += (int32)*_GWS(myArg1) >> 14;
@@ -313,7 +311,7 @@ static void op_SWITCH_NE(machine *m, int32 *pcOffset) {
 
 static void op_SWITCH_GE(machine *m, int32 *pcOffset) {
 	if (!_GWS(myArg3)) {
-		ws_Error(m, ERR_MACH, 0x0262, "functionality: switch (arg1 >= arg2) {...}");
+		ws_Error(m, "functionality: switch (arg1 >= arg2) {...}");
 	}
 	if (*_GWS(myArg2) < *_GWS(myArg3)) {
 		*pcOffset += (int32)*_GWS(myArg1) >> 14;
@@ -322,7 +320,7 @@ static void op_SWITCH_GE(machine *m, int32 *pcOffset) {
 
 static void op_SWITCH_GT(machine *m, int32 *pcOffset) {
 	if (!_GWS(myArg3)) {
-		ws_Error(m, ERR_MACH, 0x0262, "functionality: switch (arg1 > arg2) {...}");
+		ws_Error(m, "functionality: switch (arg1 > arg2) {...}");
 	}
 	if (*_GWS(myArg2) <= *_GWS(myArg3)) {
 		*pcOffset += (int32)*_GWS(myArg1) >> 14;
@@ -338,7 +336,7 @@ static bool op_DO_NOTHING(machine *m, int32 *pcOffset) {
 
 static bool op_GOTO(machine *m, int32 *pcOffset) {
 	if (!_GWS(myArg1)) {
-		ws_Error(m, ERR_MACH, 0x0263, "functionality: goto arg1");
+		ws_Error(m, "functionality: goto arg1");
 	}
 	m->curState = (*_GWS(myArg1)) >> 16;
 	m->recurseLevel = 0;
@@ -347,7 +345,7 @@ static bool op_GOTO(machine *m, int32 *pcOffset) {
 
 static bool op_JUMP(machine *m, int32 *pcOffset) {
 	if (!_GWS(myArg1)) {
-		ws_Error(m, ERR_MACH, 0x0263, "functionality: jump arg1");
+		ws_Error(m, "functionality: jump arg1");
 	}
 
 	*pcOffset += (int32)*_GWS(myArg1) >> 16;
@@ -362,22 +360,19 @@ static bool op_TERMINATE(machine *m, int32 *pcOffset) {
 
 static bool op_START_SEQ(machine *m, int32 *pcOffset) {
 	if (!_GWS(myArg1)) {
-		ws_Error(m, ERR_MACH, 0x0263, "functionality: start_seq arg1");
+		ws_Error(m, "functionality: start_seq arg1");
 	}
 
 	// Here we check whether a program was previously running
 	if (!m->myAnim8) {
 		if ((m->myAnim8 = ws_AddAnim8ToCruncher(m, *_GWS(myArg1) >> 16)) == nullptr) {
-			ws_Error(m, ERR_MACH, 0x02ff, "start_seq() failed.");
+			ws_Error(m, "start_seq() failed.");
 		}
 	} else {
 		if (!ws_ChangeAnim8Program(m, *_GWS(myArg1) >> 16)) {
-			ws_Error(m, ERR_MACH, 0x02ff, "start_seq() failed.");
+			ws_Error(m, "start_seq() failed.");
 		}
 	}
-
-	// Inform the ws debugger of the new sequence
-	dbg_LaunchSequence(m->myAnim8);
 
 	return true;
 }
@@ -389,7 +384,7 @@ static bool op_PAUSE_SEQ(machine *m, int32 *pcOffset) {
 
 static bool op_STORE_VAL(machine *m, int32 *pcOffset) {
 	if (!_GWS(myArg2)) {
-		ws_Error(m, ERR_MACH, 0x0264, "functionality: arg1 = arg2  or  arg1 = rand(arg2, arg3)");
+		ws_Error(m, "functionality: arg1 = arg2  or  arg1 = rand(arg2, arg3)");
 	}
 	if (_GWS(myArg3)) {
 		*_GWS(myArg1) = imath_ranged_rand16(*_GWS(myArg2), *_GWS(myArg3));
@@ -404,7 +399,7 @@ static bool op_SEND_MSG(machine *m, int32 *pcOffset) {
 	frac16 msgValue;
 
 	if (!_GWS(myArg2)) {
-		ws_Error(m, ERR_MACH, 0x0264, "functionality: send to machine arg1, message arg2");
+		ws_Error(m, "functionality: send to machine arg1, message arg2");
 	}
 	if (_GWS(myArg3)) {
 		msgValue = *_GWS(myArg3);
@@ -419,7 +414,7 @@ static bool op_SEND_GMSG(machine *m, int32 *pcOffset) {
 	frac16 msgValue;
 
 	if (!_GWS(myArg2)) {
-		ws_Error(m, ERR_MACH, 0x0264, "functionality: send to to all machines of type arg1, message arg2");
+		ws_Error(m, "functionality: send to to all machines of type arg1, message arg2");
 	}
 	if (_GWS(myArg3)) {
 		msgValue = *_GWS(myArg3);
@@ -435,7 +430,7 @@ static bool op_REPLY_MSG(machine *m, int32 *pcOffset) {
 	frac16	msgValue;
 
 	if (!_GWS(myArg1)) {
-		ws_Error(m, ERR_MACH, 0x0263, "functionality: reply to sender with msg arg1");
+		ws_Error(m, "functionality: reply to sender with msg arg1");
 	}
 	if (_GWS(myArg2)) {
 		msgValue = *_GWS(myArg2);
@@ -449,7 +444,7 @@ static bool op_REPLY_MSG(machine *m, int32 *pcOffset) {
 
 static bool op_SYSTEM_MSG(machine *m, int32 *pcOffset) {
 	if (!_GWS(myArg1)) {
-		ws_Error(m, ERR_MACH, 0x0263, "functionality: send to 'C' callback function with msg arg1");
+		ws_Error(m, "functionality: send to 'C' callback function with msg arg1");
 	}
 
 	if (m->CintrMsg) {
@@ -464,7 +459,7 @@ static bool op_TRIG(machine *m, int32 *pcOffset) {
 	char tempStr[80];
 
 	if (!_GWS(myArg1)) {
-		ws_Error(m, ERR_MACH, 0x0263, "functionality: trigger mach arg1, arg2 instances");
+		ws_Error(m, "functionality: trigger mach arg1, arg2 instances");
 	}
 
 	if (_GWS(myArg2)) {
@@ -480,7 +475,7 @@ static bool op_TRIG(machine *m, int32 *pcOffset) {
 	Common::sprintf_s(tempStr, "*** TRIGGERED BY MACHINE: %d", m->myHash);
 	for (int32 i = 0; i < myCount; i++) {
 		if (!TriggerMachineByHash(*_GWS(myArg1) >> 16, m->myAnim8, -1, -1, m->CintrMsg, false, tempStr)) {
-			ws_Error(m, ERR_MACH, 0x0267, "trig() failed");
+			ws_Error(m, "trig() failed");
 		}
 	}
 
@@ -495,10 +490,10 @@ static bool op_TRIG_W(machine *m, int32 *pcOffset) {
 	uint32 *myPC;
 
 	if (!_GWS(myArg1)) {
-		ws_Error(m, ERR_MACH, 0x0263, "functionality: trigger mach arg1, arg2 instances");
+		ws_Error(m, "functionality: trigger mach arg1, arg2 instances");
 	}
 
-	int32 myHash = (*_GWS(myArg1)) >> 16;
+	const int32 myHash = (*_GWS(myArg1)) >> 16;
 	if (_GWS(myArg2)) {
 		if (_GWS(myArg3)) {
 			randFlag = true;
@@ -519,7 +514,7 @@ static bool op_TRIG_W(machine *m, int32 *pcOffset) {
 	dbg_SetCurrMachInstr(m, *pcOffset, false);
 
 	if ((myInstruction = ws_PreProcessPcode(&myPC, m->myAnim8)) < 0) {
-		ws_Error(m, ERR_MACH, 0x0266, "trig_w() failed.");
+		ws_Error(m, "trig_w() failed.");
 	}
 
 	dbg_EndCurrMachInstr();
@@ -528,11 +523,11 @@ static bool op_TRIG_W(machine *m, int32 *pcOffset) {
 	*pcOffset += (byte *)myPC - (byte *)oldPC;
 
 	if (!_GWS(myArg1)) {
-		ws_Error(m, ERR_MACH, 0x0263, "trig_w instruction requires a data hash specified by a second pCode.");
+		ws_Error(m, "trig_w instruction requires a data hash specified by a second pCode.");
 	}
 
-	int32 myDataHash = (int32)(*_GWS(myArg1)) >> 16;
-	int32 myDataCount = ws_GetDATACount(myDataHash);
+	const int32 myDataHash = (int32)(*_GWS(myArg1)) >> 16;
+	const int32 myDataCount = ws_GetDATACount(myDataHash);
 	if (_GWS(myArg2)) {
 		if (_GWS(myArg3)) {
 			minIndex = (*_GWS(myArg2)) >> 16;
@@ -554,7 +549,7 @@ static bool op_TRIG_W(machine *m, int32 *pcOffset) {
 			for (i = 0; i < myCount; i++) {
 				Common::sprintf_s(tempStr, "*** TRIGGERED BY MACHINE: %d", m->myHash);
 				if (!TriggerMachineByHash(myHash, m->myAnim8, myDataHash, myIndex, m->CintrMsg, false, tempStr)) {
-					ws_Error(m, ERR_MACH, 0x0267, "trig_w() failed");
+					ws_Error(m, "trig_w() failed");
 				}
 			}
 		}
@@ -566,7 +561,7 @@ static bool op_TRIG_W(machine *m, int32 *pcOffset) {
 		for (i = 0; i < myCount; i++) {
 			Common::sprintf_s(tempStr, "*** TRIGGERED BY MACHINE: %d", m->myHash);
 			if (!TriggerMachineByHash(myHash, m->myAnim8, myDataHash, myIndex, m->CintrMsg, false, tempStr)) {
-				ws_Error(m, ERR_MACH, 0x0267, "trig_w() failed");
+				ws_Error(m, "trig_w() failed");
 			}
 		}
 	}
@@ -575,7 +570,7 @@ static bool op_TRIG_W(machine *m, int32 *pcOffset) {
 
 static bool op_CLEAR_REGS(machine *m, int32 *pcOffset) {
 	if (!m->myAnim8) {
-		ws_Error(m, ERR_INTERNAL, 0x02f3, "clear_regs() failed.");
+		ws_Error(m, "clear_regs() failed.");
 	}
 
 	Anim8 *myAnim8 = m->myAnim8;
@@ -590,7 +585,7 @@ static bool op_CLEAR_REGS(machine *m, int32 *pcOffset) {
 
 static bool op_RESUME_SEQ(machine *m, int32 *pcOffset) {
 	if (!m->myAnim8) {
-		ws_Error(m, ERR_INTERNAL, 0x02f3, "resume_seq() failed.");
+		ws_Error(m, "resume_seq() failed.");
 	}
 
 	ws_ResumeAnim8(m->myAnim8);
@@ -644,8 +639,7 @@ void addPauseTime(int32 myTime) {
 
 void cycleEngines(Buffer *cleanBackground, int16 *depth_table, Buffer *screenCodes,
 		uint8 *myPalette, uint8 *ICT, bool updateVideo) {
-	dbg_DebugNextCycle();
-	int32 clockTime = timer_read_60();
+	const int32 clockTime = timer_read_60();
 
 	if (_GWS(enginesPaused)) {
 		_GWS(pauseTime) += clockTime - _GWS(oldTime);
@@ -708,8 +702,6 @@ static void shutdownMachine(machine *m) {
 	if (m->machID == DEAD_MACHINE_ID) {
 		return;
 	}
-
-	dbg_RemoveWSMach(m);
 
 	if (m->myAnim8) {
 		ws_RemoveAnim8FromCruncher(m->myAnim8);
@@ -854,7 +846,7 @@ static int32 StepAt(int32 *pcOffset, machine *m) {
 	int32 myInstruction;
 	uint32 *myPC;
 
-	uint32 machID = m->machID;
+	const uint32 machID = m->machID;
 	Anim8 *myAnim8 = m->myAnim8;
 
 	// Find the current PC and process it to get the current instruction
@@ -866,7 +858,7 @@ static int32 StepAt(int32 *pcOffset, machine *m) {
 	dbg_SetCurrMachInstr(m, *pcOffset, false);
 
 	if ((myInstruction = ws_PreProcessPcode(&myPC, myAnim8)) < 0) {
-		ws_Error(m, ERR_MACH, 0x0266, nullptr);
+		ws_Error(m, nullptr);
 	}
 
 	dbg_EndCurrMachInstr();
@@ -875,14 +867,14 @@ static int32 StepAt(int32 *pcOffset, machine *m) {
 	*pcOffset += (byte *)myPC - (byte *)oldPC;
 
 	if (myInstruction >= 64) {
-		if (myInstruction > 74)
+		if (myInstruction >= 74)
 			error("Unexpected instruction %d", myInstruction);
 		condOpTable[myInstruction - 64](m, pcOffset);
 	} else if (myInstruction > 0) {
 		if (myInstruction > 15)
 			error("Unexpected instruction %d", myInstruction);
-		
-		bool keepProcessing = immOpTable[myInstruction](m, pcOffset);
+
+		const bool keepProcessing = immOpTable[myInstruction](m, pcOffset);
 
 		if (!keepProcessing) {
 			// Does the machine still exist
@@ -904,12 +896,12 @@ static int32 StepAt(int32 *pcOffset, machine *m) {
 void ws_StepWhile(machine *m, int32 pcOffset, int32 pcCount) {
 	// We are executing machine instructions after a conditional has been satisfied.
 	// Mark where we started
-	int32 oldPC = pcOffset;
+	const int32 oldPC = pcOffset;
 
 	// Increment and remember the recurseLevel and the machine ID
 	m->recurseLevel++;
-	uint32 recurseLevel = m->recurseLevel;
-	uint32 machID = m->machID;
+	const uint32 recurseLevel = m->recurseLevel;
+	const uint32 machID = m->machID;
 
 	// Execute instructions until the conditional count has been reached.
 	int32 myInstruction = -1;
@@ -939,7 +931,7 @@ void ws_StepWhile(machine *m, int32 pcOffset, int32 pcCount) {
 
 void IntoTheState(machine *m) {
 	if ((m->curState >= m->numOfStates) || (m->curState < 0)) {
-		ws_Error(m, ERR_INTERNAL, 0x2f2, "IntoTheState() failed.");
+		ws_Error(m, "IntoTheState() failed.");
 	}
 
 	uint32 *stateTable = (uint32 *)((intptr)(*(m->machHandle)) + (intptr)m->stateTableOffset);
@@ -947,8 +939,8 @@ void IntoTheState(machine *m) {
 
 	// Increment and remember the recurseLevel and the machine ID
 	m->recurseLevel++;
-	uint32 recurseLevel = m->recurseLevel;
-	uint32 machID = m->machID;
+	const uint32 recurseLevel = m->recurseLevel;
+	const uint32 machID = m->machID;
 
 	// Execute all instruction until an instruction (ie. OP_END) signals execution to stop
 	// by returning 0, or something has reset the recurseLevel (ie. op_GOTO)
@@ -961,7 +953,7 @@ void IntoTheState(machine *m) {
 	if (myInstruction != OP_KILL) {
 		// If the above loop executed without being modified (ie terminated) by a call to StepAt()
 		if ((m->machID == machID) && (m->recurseLevel == recurseLevel)) {
-			// Decriment the recurse counter
+			// Decrement the recurse counter
 			m->recurseLevel--;
 		}
 	}
@@ -971,13 +963,6 @@ void IntoTheState(machine *m) {
 
 machine *TriggerMachineByHash(int32 myHash, Anim8 *parentAnim8, int32 dataHash, int32 dataRow, MessageCB CintrMsg, bool debug, const char *machName) {
 	machine *m = (machine *)mem_alloc(sizeof(machine), "machine");
-
-	if (m == nullptr) {
-		ws_LogErrorMsg(FL, "Out of memory - mem requested: %d.", sizeof(machine));
-		ws_LogErrorMsg(FL, "Trying to trigger hash: %d, name: %s", myHash, machName);
-		ws_Error(m, ERR_INTERNAL, 0x2fe, "TriggerMachineByHash() failed.");
-		return nullptr;
-	}
 
 	// Initialize the identification fields
 	_GWS(machineIDCount)++;
@@ -1025,8 +1010,6 @@ machine *TriggerMachineByHash(int32 myHash, Anim8 *parentAnim8, int32 dataHash, 
 	m->myPersistentMsgs = nullptr;
 	m->usedPersistentMsgs = nullptr;
 	m->walkPath = nullptr;
-
-	dbg_DebugWSMach(m, debug);
 
 	IntoTheState(m);
 	return m;
@@ -1093,8 +1076,8 @@ static bool SearchMsgList(uint32 msgHash, uint32 msgValue, machine *recvM, int32
 			found = true;
 
 			// Find out where to begin executing from
-			int32 pcOffset = myMsg->pcOffset;
-			int32 pcCount = myMsg->pcCount;
+			const int32 pcOffset = myMsg->pcOffset;
+			const int32 pcCount = myMsg->pcCount;
 
 			// Remove the msg from the list, based on which list
 			switch (whichList) {
@@ -1153,7 +1136,7 @@ void sendWSMessage(uint32 msgHash, frac16 msgValue, machine *recvM,
 		uint32 machHash, machine *sendM, int32 msgCount) {
 	bool sendToAll;
 
-	debugC(1, kDebugMessages, "Message %xh, %lxh, %s, %xh, %s, %d",
+	debugC(1, kDebugMessages, "Message %xh, %" PRIxPTR "h, %s, %xh, %s, %d",
 	       msgHash, msgValue, recvM ? recvM->machName : "NONE",
 	       machHash, sendM ? sendM->machName : "NONE", msgCount);
 
@@ -1174,10 +1157,7 @@ void sendWSMessage(uint32 msgHash, frac16 msgValue, machine *recvM,
 
 	// Prepare a global message structure
 	globalMsgReq *tempGlobalMsg = (globalMsgReq *)mem_alloc(sizeof(globalMsgReq), "globalMsgReq");
-	if (tempGlobalMsg == nullptr) {
-		ws_LogErrorMsg(FL, "Out of memory - mem requested: %d.", sizeof(machine));
-		ws_Error(nullptr, ERR_INTERNAL, 0x2fe, "SendWSMessage() failed.");
-	}
+
 	tempGlobalMsg->msgHash = msgHash;
 	tempGlobalMsg->msgValue = msgValue;
 	tempGlobalMsg->machHash = machHash;

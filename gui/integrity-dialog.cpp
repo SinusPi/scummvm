@@ -30,6 +30,7 @@
 #include "common/tokenizer.h"
 #include "common/translation.h"
 
+#include "gui/chooser.h"
 #include "gui/gui-manager.h"
 #include "gui/launcher.h"
 #include "gui/message.h"
@@ -71,6 +72,7 @@ struct ChecksumDialogState {
 
 	Common::String endpoint;
 	Common::Path gamePath;
+	Common::HashMap<Common::Path, bool, Common::Path::IgnoreCase_Hash, Common::Path::IgnoreCase_EqualTo> ignoredSubdirsMap;
 	Common::String gameid;
 	Common::String engineid;
 	Common::String extra;
@@ -126,6 +128,48 @@ IntegrityDialog::IntegrityDialog(Common::String endpoint, Common::String domain)
 		g_checksum_state = new ChecksumDialogState();
 		g_checksum_state->dialog = this;
 
+		Common::Array<Common::String> gameAddOns;
+
+		Common::ConfigManager::DomainMap::iterator iter = ConfMan.beginGameDomains();
+		for (; iter != ConfMan.endGameDomains(); ++iter) {
+			Common::String name(iter->_key);
+			Common::ConfigManager::Domain &dom = iter->_value;
+
+			Common::String parent;
+			if (dom.tryGetVal("parent", parent) && parent == domain)
+				gameAddOns.push_back(name);
+		}
+
+		if (!gameAddOns.empty()) {
+			// Ask the user to choose between the base game or one of its add-ons
+			Common::U32StringArray list;
+			list.push_back(ConfMan.get("description", domain));
+
+			for (Common::String &gameAddOn : gameAddOns) {
+				list.push_back(ConfMan.get("description", gameAddOn));
+			}
+
+			ChooserDialog dialog(_("This game includes add-ons, pick the part you want to be checked:"));
+			dialog.setList(list);
+			int idx = dialog.runModal();
+			if (idx < 0) {
+				// User cancelled the dialog
+				_close = true;
+				return;
+			}
+
+			if (idx >= 1 && idx < (int)gameAddOns.size() + 1) {
+				// User selected an add-on, change the selected domain
+				domain = gameAddOns[idx - 1];
+			} else {
+				// User selected the base game, ignore the add-ons subdirectories
+				for (Common::String &gameAddOn : gameAddOns) {
+					Common::Path addOnPath = ConfMan.getPath("path", gameAddOn);
+					g_checksum_state->ignoredSubdirsMap[addOnPath] = true;
+				}
+			}
+		}
+
 		setState(kChecksumStateCalculating);
 		refreshWidgets();
 
@@ -136,7 +180,7 @@ IntegrityDialog::IntegrityDialog(Common::String endpoint, Common::String domain)
 		g_checksum_state->extra = ConfMan.get("extra", domain);
 		g_checksum_state->platform = ConfMan.get("platform", domain);
 		g_checksum_state->language = ConfMan.get("language", domain);
-		calculateTotalSize(g_checksum_state->gamePath);
+		calculateTotalSize(g_checksum_state->gamePath, g_checksum_state->ignoredSubdirsMap);
 	} else {
 		g_checksum_state->dialog = this;
 
@@ -170,12 +214,12 @@ bool IntegrityDialog::progressUpdate(int bytesProcessed) {
 	}
 
 	return true;
-};
+}
 
 static bool progressUpdateCallback(void *param, int bytesProcessed) {
 	IntegrityDialog *dialog = (IntegrityDialog *)param;
 	return dialog->progressUpdate(bytesProcessed);
-};
+}
 
 
 void IntegrityDialog::open() {
@@ -311,7 +355,7 @@ void IntegrityDialog::setError(Common::U32String &msg) {
 	_cancelButton->setCmd(kCleanupCmd);
 }
 
-void IntegrityDialog::calculateTotalSize(Common::Path gamePath) {
+void IntegrityDialog::calculateTotalSize(Common::Path gamePath, const Common::HashMap<Common::Path, bool, Common::Path::IgnoreCase_Hash, Common::Path::IgnoreCase_EqualTo> &ignoredSubdirsMap) {
 	const Common::FSNode dir(gamePath);
 
 	if (!dir.exists() || !dir.isDirectory())
@@ -326,9 +370,10 @@ void IntegrityDialog::calculateTotalSize(Common::Path gamePath) {
 
 	// Process the files and subdirectories in the current directory recursively
 	for (const auto &entry : fileList) {
-		if (entry.isDirectory())
-			calculateTotalSize(entry.getPath());
-		else {
+		if (entry.isDirectory()) {
+			if (!ignoredSubdirsMap.contains(entry.getPath()))
+				calculateTotalSize(entry.getPath(), ignoredSubdirsMap);
+		} else {
 			Common::File file;
 			if (!file.open(entry))
 				continue;
@@ -351,15 +396,68 @@ Common::Array<Common::StringArray> IntegrityDialog::generateChecksums(Common::Pa
 	if (fileList.empty())
 		return {};
 
+	// First, we go through the list and check any Mac files
+	Common::HashMap<Common::Path, bool, Common::Path::IgnoreCase_Hash, Common::Path::IgnoreCase_EqualTo> macFiles;
+	Common::HashMap<Common::Path, bool, Common::Path::IgnoreCase_Hash, Common::Path::IgnoreCase_EqualTo> toRemove;
+	Common::List<Common::Path> tmpFileList;
+
+	for (const auto &entry : fileList) {
+		if (entry.isDirectory())
+			continue;
+
+		Common::Path filename(entry.getPath().relativeTo(gamePath));
+		const Common::Path originalFileName = filename;
+		filename.removeExtension(".bin");
+		filename.removeExtension(".rsrc");
+
+		auto macFile = Common::MacResManager();
+
+		if (macFile.open(filename) && macFile.isMacFile()) {
+			macFiles[originalFileName] = true;
+
+			switch (macFile.getMode()) {
+			case Common::MacResManager::kResForkRaw:
+				toRemove[filename.append(".rsrc")] = true;
+				toRemove[filename.append(".data")] = true;
+				toRemove[filename.append(".finf")] = true;
+				break;
+			case Common::MacResManager::kResForkMacBinary:
+				toRemove[filename.append(".bin")] = true;
+				break;
+			case Common::MacResManager::kResForkAppleDouble:
+				toRemove[Common::MacResManager::constructAppleDoubleName(filename)] = true;
+				toRemove[filename.getParent().append("__MACOSX")] = true;
+				break;
+			default:
+				error("Unsupported MacResManager mode: %d", macFile.getMode());
+			}
+
+			tmpFileList.push_back(filename);
+		} else {
+			if (!toRemove.contains(originalFileName))
+				tmpFileList.push_back(originalFileName);
+		}
+	}
+
 	// Process the files and subdirectories in the current directory recursively
 	for (const auto &entry : fileList) {
+		Common::Path filename(entry.getPath().relativeTo(gamePath));
+
+		if (macFiles.contains(filename)) {
+			filename.removeExtension(".bin");
+			filename.removeExtension(".rsrc");
+		}
+
+		if (toRemove.contains(filename))
+			continue;
+
 		if (entry.isDirectory()) {
-			generateChecksums(entry.getPath(), fileChecksums, gamePath);
+			if (!g_checksum_state->ignoredSubdirsMap.contains(entry.getPath()))
+				generateChecksums(entry.getPath(), fileChecksums, gamePath);
 
 			continue;
 		}
 
-		const Common::Path filename(entry.getPath().relativeTo(gamePath));
 		auto macFile = Common::MacResManager();
 
 		if (macFile.open(filename) && macFile.isMacFile()) {
@@ -370,7 +468,8 @@ Common::Array<Common::StringArray> IntegrityDialog::generateChecksums(Common::Pa
 			// Data fork
 			// Various checksizes
 			for (auto size : {0, 5000, 1024 * 1024}) {
-				fileChecksum.push_back(Common::String::format("md5-d-%d", size));
+				Common::String sz = size ? Common::String::format("-%d", size) : "";
+				fileChecksum.push_back(Common::String::format("md5-d%s", sz.c_str()));
 				fileChecksum.push_back(Common::computeStreamMD5AsString(*dataForkStream, size, progressUpdateCallback, this));
 				dataForkStream->seek(0);
 			}
@@ -383,7 +482,8 @@ Common::Array<Common::StringArray> IntegrityDialog::generateChecksums(Common::Pa
 			if (macFile.hasResFork()) {
 				// Various checksizes
 				for (auto size : {0, 5000, 1024 * 1024}) {
-					fileChecksum.push_back(Common::String::format("md5-r-%d", size));
+					Common::String sz = size ? Common::String::format("-%d", size) : "";
+					fileChecksum.push_back(Common::String::format("md5-r%s", sz.c_str()));
 					fileChecksum.push_back(macFile.computeResForkMD5AsString(size, false, progressUpdateCallback, this));
 				}
 				// Tail checksums with checksize 5000
@@ -418,7 +518,8 @@ Common::Array<Common::StringArray> IntegrityDialog::generateChecksums(Common::Pa
 		Common::Array<Common::String> fileChecksum = {filename.toString()};
 		// Various checksizes
 		for (auto size : {0, 5000, 1024 * 1024}) {
-			fileChecksum.push_back(Common::String::format("md5-%d", size));
+			Common::String sz = size ? Common::String::format("-%d", size) : "";
+			fileChecksum.push_back(Common::String::format("md5%s", sz.c_str()));
 			fileChecksum.push_back(Common::computeStreamMD5AsString(file, size, progressUpdateCallback, this).c_str());
 			file.seek(0);
 		}
@@ -434,7 +535,8 @@ Common::Array<Common::StringArray> IntegrityDialog::generateChecksums(Common::Pa
 		fileChecksums.push_back(fileChecksum);
 	}
 
-	setState(kChecksumComplete);
+	if (currentPath == gamePath) // Enter "checksum complete" state only once the whole root directory has been processed
+		setState(kChecksumComplete);
 	return fileChecksums;
 }
 

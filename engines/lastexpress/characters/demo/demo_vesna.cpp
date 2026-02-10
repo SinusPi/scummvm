@@ -158,10 +158,18 @@ void LogicManager::CONS_DemoVesna_WaitRCClear(CONS_PARAMS) {
 }
 
 void LogicManager::HAND_DemoVesna_WaitRCClear(HAND_PARAMS) {
-	if ((msg->action == 0 && rcClear()) || (msg->action == 12 && rcClear())) {
-		getCharacter(kCharacterVesna).currentCall--;
-		_engine->getMessageManager()->setMessageHandle(kCharacterVesna, _functionsDemoVesna[getCharacter(kCharacterVesna).callbacks[getCharacter(kCharacterVesna).currentCall]]);
-		fedEx(kCharacterVesna, kCharacterVesna, 18, 0);
+	switch (msg->action) {
+	case 0:
+	case 12:
+		if (rcClear()) {
+			getCharacter(kCharacterVesna).currentCall--;
+			_engine->getMessageManager()->setMessageHandle(kCharacterVesna, _functionsDemoVesna[getCharacter(kCharacterVesna).callbacks[getCharacter(kCharacterVesna).currentCall]]);
+			fedEx(kCharacterVesna, kCharacterVesna, 18, 0);
+		}
+
+		break;
+	default:
+		break;
 	}
 }
 
@@ -211,7 +219,7 @@ void LogicManager::CONS_DemoVesna_InComp(CONS_PARAMS) {
 void LogicManager::HAND_DemoVesna_InComp(HAND_PARAMS) {
 	switch (msg->action) {
 	case 0:
-		if (_globals[kProgressField54] && getCharacterCurrentParams(kCharacterVesna)[0] != 0x7FFFFFFF && _gameTime) {
+		if (_globals[kGlobalAnnaIsInBaggageCar] && getCharacterCurrentParams(kCharacterVesna)[0] != 0x7FFFFFFF && _gameTime) {
 			if (_gameTime <= 2259000) {
 				if (!cathInCorridor(kCarRedSleeping) || !getCharacterCurrentParams(kCharacterVesna)[0]) {
 					getCharacterCurrentParams(kCharacterVesna)[0] = _gameTime;

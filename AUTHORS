@@ -26,9 +26,13 @@ ScummVM Team
     Access:
        Arnaud Boutonne
        Paul Gilbert
+       Matthew Duggan
 
     ADL:
        Walter van Niftrik
+
+    AGDS:
+       Vladimir Menshakov
 
     AGI:
        Stuart George
@@ -90,6 +94,9 @@ ScummVM Team
        Tzach Shabtay                  - AGS
        rofl0r                         - AGS
        Berian Williams                - AgsCreditz
+
+    Alcachofa:
+       Hermann Noll
 
     Asylum:
        Alex Bevilacqua
@@ -551,6 +558,9 @@ ScummVM Team
     Toon:
        Sylvain Dupont
 
+    Tot:
+       Gabriel Sanmartín
+
     Touche:
        Gregory Montoir                - (retired)
 
@@ -586,6 +596,7 @@ ScummVM Team
        Paul Gilbert
        Matthew Duggan
        Matthew Jimenez
+       Paul Robson                    - (Akalabeth)
        Daniel c. Wuerl                - (Nuvie)
        Eric Fry                       - (Nuvie)
        Jeremy Newman                  - (Nuvie)
@@ -613,7 +624,9 @@ ScummVM Team
        Paul Gilbert
 
     WAGE:
+       Alikhan Balpykov
        Eugene Sandulenko
+       Alexei Svitkine                - (Java implementation author)
 
     Watchmaker:
        Einar Johan Troan Somaen;
@@ -629,6 +642,8 @@ ScummVM Team
        Adrian Astley
        Filippos Karapetis
        Anton Yarcev
+       Thomas N McEwan                - Widescreen mod, HQ panoramas, 3D
+                                        audio enhancement
 
   Backend Teams
   -------------

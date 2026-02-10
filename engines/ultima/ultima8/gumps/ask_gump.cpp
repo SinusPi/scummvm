@@ -57,7 +57,7 @@ void AskGump::InitGump(Gump *newparent, bool take_focus) {
 	ItemRelativeGump::InitGump(newparent, take_focus);
 
 	for (unsigned int i = 0; i < _answers->getSize(); ++i) {
-		Std::string str_answer = "@ ";
+		Common::String str_answer = "@ ";
 		str_answer += UCMachine::get_instance()->getString(_answers->getStringIndex(i));
 
 		ButtonWidget *child = new ButtonWidget(px, py, str_answer,
@@ -65,8 +65,7 @@ void AskGump::InitGump(Gump *newparent, bool take_focus) {
 		child->InitGump(this);
 		child->SetIndex(i);
 
-		Rect cd;
-		child->GetDims(cd);
+		Common::Rect32 cd = child->getDims();
 		if (i + 1 < _answers->getSize())
 			cd.setHeight(cd.height() + child->getVlead());
 
@@ -134,8 +133,7 @@ bool AskGump::loadData(Common::ReadStream *rs, uint32 version) {
 
 		if (!child) return false;
 
-		Rect cd;
-		child->GetDims(cd);
+		Common::Rect32 cd = child->getDims();
 
 		if (px + cd.width() > 160 && px != 0) {
 			py = _dims.height();

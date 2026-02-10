@@ -34,89 +34,12 @@
 #include "agos/intern.h"
 #include "agos/agos.h"
 #include "agos/detection.h"
-
-namespace AGOS {
-
-static const ADExtraGuiOptionsMap optionsList[] = {
-	{
-		GAMEOPTION_COPY_PROTECTION,
-		{
-			_s("Enable copy protection"),
-			_s("Enable any copy protection that would otherwise be bypassed by default."),
-			"copy_protection",
-			false,
-			0,
-			0
-		},
-	},
-	{
-		GAMEOPTION_OPL3_MODE,
-		{
-			_s("AdLib OPL3 mode"),
-			_s("When AdLib is selected, OPL3 features will be used. Depending on the game, this will prevent cut-off notes, add extra notes or instruments and/or add stereo."),
-			"opl3_mode",
-			false,
-			0,
-			0
-		}
-	},
-	{
-		GAMEOPTION_DOS_TEMPOS,
-		{
-			_s("Use DOS version music tempos"),
-			_s("Selecting this option will play the music using the tempos used by the DOS version of the game. Otherwise, the faster tempos of the Windows version will be used."),
-			"dos_music_tempos",
-			true,
-			0,
-			0
-		}
-	},
-	{
-		GAMEOPTION_WINDOWS_TEMPOS,
-		{
-			_s("Use DOS version music tempos"),
-			_s("Selecting this option will play the music using the tempos used by the DOS version of the game. Otherwise, the faster tempos of the Windows version will be used."),
-			"dos_music_tempos",
-			false,
-			0,
-			0
-		}
-	},
-	{
-		GAMEOPTION_PREFER_DIGITAL_SFX,
-		{
-			_s("Prefer digital sound effects"),
-			_s("Prefer digital sound effects instead of synthesized ones"),
-			"prefer_digitalsfx",
-			true,
-			0,
-			0
-		}
-	},
-	{
-		GAMEOPTION_DISABLE_FADE_EFFECTS,
-		{
-			_s("Disable fade-out effects"),
-			_s("Don't fade every screen to black when leaving a room."),
-			"disable_fade_effects",
-			false,
-			0,
-			0
-		}
-	},
-	AD_EXTRA_GUI_OPTIONS_TERMINATOR
-};
-
-} // End of namespace AGOS
+#include "agos/dialogs.h"
 
 class AgosMetaEngine : public AdvancedMetaEngine<AGOS::AGOSGameDescription> {
 public:
 	const char *getName() const override {
 		return "agos";
-	}
-
-	const ADExtraGuiOptionsMap *getAdvancedExtraGuiOptions() const override {
-		return AGOS::optionsList;
 	}
 
 	bool hasFeature(MetaEngineFeature f) const override;
@@ -127,6 +50,9 @@ public:
 	int getMaximumSaveSlot() const override;
 
 	Common::KeymapArray initKeymaps(const char *target) const override;
+
+	void registerDefaultSettings(const Common::String &target) const override;
+	GUI::OptionsContainerWidget *buildEngineOptionsWidget(GUI::GuiObject *boss, const Common::String &name, const Common::String &target) const override;
 };
 
 bool AgosMetaEngine::hasFeature(MetaEngineFeature f) const {
@@ -229,13 +155,13 @@ Common::KeymapArray AgosMetaEngine::initKeymaps(const char *target) const {
 	Keymap *yesNoKeymap = new Keymap(Keymap::kKeymapTypeGame, "game-Yes/No", _("Yes/No keymapping"));
 	Action *act;
 
-	act = new Action(kStandardActionLeftClick, _("Left Click"));
+	act = new Action(kStandardActionLeftClick, _("Left click"));
 	act->setLeftClickEvent();
 	act->addDefaultInputMapping("MOUSE_LEFT");
 	act->addDefaultInputMapping("JOY_A");
 	engineKeyMap->addAction(act);
 
-	act = new Action(kStandardActionRightClick, _("Right Click"));
+	act = new Action(kStandardActionRightClick, _("Right click"));
 	act->setRightClickEvent();
 	act->addDefaultInputMapping("MOUSE_RIGHT");
 	act->addDefaultInputMapping("JOY_B");
@@ -265,17 +191,17 @@ Common::KeymapArray AgosMetaEngine::initKeymaps(const char *target) const {
 	act->addDefaultInputMapping("PLUS");
 	gameKeyMap->addAction(act);
 
-	act = new Action("MUTEMSC", _("Toggle music on/off"));
+	act = new Action("MUTEMSC", _("Toggle music"));
 	act->setCustomEngineActionEvent(kActionToggleMusic);
 	act->addDefaultInputMapping("m");
 	gameKeyMap->addAction(act);
 
-	act = new Action("SNDEFFECT", _("Toggle sound effects on/off"));
+	act = new Action("SNDEFFECT", _("Toggle sound effects"));
 	act->setCustomEngineActionEvent(kActionToggleSoundEffects);
 	act->addDefaultInputMapping("s");
 	gameKeyMap->addAction(act);
 
-	act = new Action("FSTMODE", _("Toggle fast mode on/off"));
+	act = new Action("FSTMODE", _("Toggle fast mode"));
 	act->setCustomEngineActionEvent(kActionToggleFastMode);
 	act->addDefaultInputMapping("C+f");
 	gameKeyMap->addAction(act);
@@ -343,7 +269,7 @@ Common::KeymapArray AgosMetaEngine::initKeymaps(const char *target) const {
 		gameKeyMap->addAction(act);
 
 		if (gameId == "simon2") {
-			act = new Action("BACKGRNDSND", _("Toggle background sounds on/off"));
+			act = new Action("BACKGRNDSND", _("Toggle background sounds"));
 			act->setCustomEngineActionEvent(kActionToggleBackgroundSound);
 			act->addDefaultInputMapping("b");
 			gameKeyMap->addAction(act);
@@ -358,7 +284,7 @@ Common::KeymapArray AgosMetaEngine::initKeymaps(const char *target) const {
 		act->addDefaultInputMapping("JOY_X");
 		gameKeyMap->addAction(act);
 
-		act = new Action("TOGGLEHITBOX", _("Toggle hitbox names on/off"));
+		act = new Action("TOGGLEHITBOX", _("Toggle hitbox names"));
 		act->setCustomEngineActionEvent(kActionToggleHitboxName);
 		act->addDefaultInputMapping("F9");
 		gameKeyMap->addAction(act);
@@ -404,6 +330,22 @@ Common::KeymapArray AgosMetaEngine::initKeymaps(const char *target) const {
 
 	yesNoKeymap->setEnabled(false);
 	return keymaps;
+}
+
+void AgosMetaEngine::registerDefaultSettings(const Common::String &target) const {
+	for (const ADExtraGuiOptionsMap *entry = AGOS::optionsList; entry->guioFlag; ++entry)
+		ConfMan.registerDefault(entry->option.configOption, entry->option.defaultState);
+
+	for (const AGOS::PopUpOptionsMap *entry = AGOS::popUpOptionsList; entry->guioFlag; ++entry)
+		ConfMan.registerDefault(entry->configOption, entry->defaultState);
+
+	// DOS music tempos should default to true for DOS, false for Windows and Acorn
+	bool isDos = ConfMan.get("gameid", target) == "simon1" && ConfMan.get("platform", target) == "pc";
+	ConfMan.registerDefault("dos_music_tempos", isDos);
+}
+
+GUI::OptionsContainerWidget *AgosMetaEngine::buildEngineOptionsWidget(GUI::GuiObject *boss, const Common::String &name, const Common::String &target) const {
+	return new AGOS::OptionsWidget(boss, name, target);
 }
 
 #if PLUGIN_ENABLED_DYNAMIC(AGOS)

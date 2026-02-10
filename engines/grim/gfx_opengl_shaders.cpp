@@ -81,14 +81,6 @@ static float textured_quad[] = {
 	0.0f, 1.0f, 0.0f, 1.0f,
 };
 
-static float textured_quad_centered[] = {
-//	 X   ,  Y   , Z   , S   , T
-	-0.5f, -0.5f, 0.0f, 0.0f, 1.0f,
-	-0.5f, +0.5f, 0.0f, 0.0f, 0.0f,
-	+0.5f, +0.5f, 0.0f, 1.0f, 0.0f,
-	+0.5f, -0.5f, 0.0f, 1.0f, 1.0f,
-};
-
 static float zero_texVerts[] = { 0.0, 0.0 };
 
 struct GrimVertex {
@@ -310,7 +302,7 @@ void GfxOpenGLS::setupTexturedQuad() {
 }
 
 void GfxOpenGLS::setupTexturedCenteredQuad() {
-	_spriteVBO = OpenGL::Shader::createBuffer(GL_ARRAY_BUFFER, sizeof(textured_quad_centered), textured_quad_centered, GL_STATIC_DRAW);
+	_spriteVBO = OpenGL::Shader::createBuffer(GL_ARRAY_BUFFER, 0, nullptr, GL_STATIC_DRAW);
 	_spriteProgram->enableVertexAttribute("position", _spriteVBO, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), 0);
 	_spriteProgram->enableVertexAttribute("texcoord", _spriteVBO, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), 3 * sizeof(float));
 	_spriteProgram->disableVertexAttribute("color", Math::Vector4d(1.0f, 1.0f, 1.0f, 1.0f));
@@ -998,10 +990,6 @@ void GfxOpenGLS::clearShadowMode() {
 	glDepthMask(GL_TRUE);
 }
 
-bool GfxOpenGLS::isShadowModeActive() {
-	return false;
-}
-
 void GfxOpenGLS::setShadowColor(byte r, byte g, byte b) {
 	_shadowColorR = r;
 	_shadowColorG = g;
@@ -1066,7 +1054,7 @@ void GfxOpenGLS::drawEMIModelFace(const EMIModel* model, const EMIMeshFace* face
 		glEnable(GL_BLEND);
 	const EMIModelUserData *mud = (const EMIModelUserData *)model->_userData;
 	OpenGL::Shader *actorShader;
-	if ((face->_flags & EMIMeshFace::kNoLighting) ? false : _lightsEnabled)
+	if ((face->_flags & EMIMeshFace::kNoLighting || isShadowModeActive()) ? false : _lightsEnabled)
 		actorShader = mud->_shaderLights;
 	else
 		actorShader = mud->_shader;
@@ -1153,8 +1141,6 @@ void GfxOpenGLS::drawSprite(const Sprite *sprite) {
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	}
 
-	// FIXME: depth test does not work yet because final z coordinates
-	//        for Sprites and actor textures are inconsistently calculated
 	if (sprite->_flags2 & Sprite::DepthTest || _currentActor->isInOverworld()) {
 		glEnable(GL_DEPTH_TEST);
 	} else {
@@ -1186,8 +1172,24 @@ void GfxOpenGLS::drawSprite(const Sprite *sprite) {
 	// FIXME: Currently vertex-specific colors are not supported for sprites.
 	// It is unknown at this time if this is really needed anywhere.
 	Math::Vector4d color(sprite->_red[0] / 255.0f, sprite->_green[0] / 255.0f, sprite->_blue[0] / 255.0f, sprite->_alpha[0] / 255.0f);
-	_spriteProgram->setUniform("uniformColor", color);
+	if (g_grim->getGameType() == GType_MONKEY4) {
+		// Don't overwrite the actor's alpha value  which is set via uniformColor in startActorDraw()
+		_spriteProgram->setUniform("spriteColor", color);
+	} else {
+		// No need to set spriteColor for GRIM, it is specific to the EMI sprite shader program
+		_spriteProgram->setUniform("uniformColor", color);
+	}
 
+	float sprite_textured_quad[] = {
+	//	 X   ,  Y   , Z   , S   , T
+		-0.5f, +0.5f, 0.0f, sprite->_texCoordX[0], sprite->_texCoordY[0],
+		+0.5f, +0.5f, 0.0f, sprite->_texCoordX[1], sprite->_texCoordY[1],
+		+0.5f, -0.5f, 0.0f, sprite->_texCoordX[2], sprite->_texCoordY[2],
+		-0.5f, -0.5f, 0.0f, sprite->_texCoordX[3], sprite->_texCoordY[3],
+	};
+
+	glBindBuffer(GL_ARRAY_BUFFER, _spriteVBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(sprite_textured_quad), sprite_textured_quad, GL_STATIC_DRAW);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _quadEBO);
 	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, nullptr);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
@@ -1360,11 +1362,7 @@ void GfxOpenGLS::createBitmap(BitmapData *bitmap) {
 		glPixelStorei(GL_UNPACK_ALIGNMENT, bytes);
 
 		const Graphics::PixelFormat format_16bpp(2, 5, 6, 5, 0, 11, 5, 0, 0);
-#ifdef SCUMM_BIG_ENDIAN
-		const Graphics::PixelFormat format_32bpp(4, 8, 8, 8, 8, 24, 16, 8, 0);
-#else
-		const Graphics::PixelFormat format_32bpp(4, 8, 8, 8, 8, 0, 8, 16, 24);
-#endif
+		const Graphics::PixelFormat format_32bpp = Graphics::PixelFormat::createFormatRGBA32();
 
 		for (int pic = 0; pic < bitmap->_numImages; pic++) {
 			const Graphics::Surface &imageData = bitmap->getImageData(pic);
@@ -2001,11 +1999,7 @@ void GfxOpenGLS::drawPolygon(const PrimitiveObject *primitive) {
 }
 
 const Graphics::PixelFormat GfxOpenGLS::getMovieFormat() const {
-#ifdef SCUMM_BIG_ENDIAN
-	return Graphics::PixelFormat(4, 8, 8, 8, 8, 24, 16, 8, 0);
-#else
-	return Graphics::PixelFormat(4, 8, 8, 8, 8, 0, 8, 16, 24);
-#endif
+	return Graphics::PixelFormat::createFormatRGBA32();
 }
 
 void GfxOpenGLS::prepareMovieFrame(Graphics::Surface* frame) {
@@ -2224,11 +2218,7 @@ static void readPixels(int x, int y, int width, int height, byte *buffer) {
 
 Bitmap *GfxOpenGLS::getScreenshot(int w, int h, bool useStored) {
 	Graphics::Surface src;
-#ifdef SCUMM_BIG_ENDIAN
-	src.create(_screenWidth, _screenHeight, Graphics::PixelFormat(4, 8, 8, 8, 8, 24, 16, 8, 0));
-#else
-	src.create(_screenWidth, _screenHeight, Graphics::PixelFormat(4, 8, 8, 8, 8, 0, 8, 16, 24));
-#endif
+	src.create(_screenWidth, _screenHeight, Graphics::PixelFormat::createFormatRGBA32());
 	Bitmap *bmp;
 
 	if (useStored) {

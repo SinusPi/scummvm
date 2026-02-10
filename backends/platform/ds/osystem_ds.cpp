@@ -22,6 +22,7 @@
 #define FORBIDDEN_SYMBOL_EXCEPTION_time_h
 #define FORBIDDEN_SYMBOL_EXCEPTION_printf
 
+#include <portdefs.h> // Protect uintXX typedefs
 #include <nds.h>
 #include <filesystem.h>
 
@@ -83,7 +84,7 @@ void OSystem_DS::initBackend() {
 	ConfMan.setBool("FM_medium_quality", true);
 
 	_eventSource = new DSEventSource();
-	_eventManager = new DefaultEventManager(_eventSource);
+	_eventManager = new DSEventManager(_eventSource);
 
 	_savefileManager = new DefaultSaveFileManager();
 	_timerManager = new DefaultTimerManager();
@@ -178,10 +179,10 @@ static const Common::HardwareInputTableEntry ndsJoystickButtons[] = {
 	{ "JOY_START",          Common::JOYSTICK_BUTTON_START,          _s("Start")       },
 	{ "JOY_LEFT_SHOULDER",  Common::JOYSTICK_BUTTON_LEFT_SHOULDER,  _s("L")           },
 	{ "JOY_RIGHT_SHOULDER", Common::JOYSTICK_BUTTON_RIGHT_SHOULDER, _s("R")           },
-	{ "JOY_UP",             Common::JOYSTICK_BUTTON_DPAD_UP,        _s("D-pad Up")    },
-	{ "JOY_DOWN",           Common::JOYSTICK_BUTTON_DPAD_DOWN,      _s("D-pad Down")  },
-	{ "JOY_LEFT",           Common::JOYSTICK_BUTTON_DPAD_LEFT,      _s("D-pad Left")  },
-	{ "JOY_RIGHT",          Common::JOYSTICK_BUTTON_DPAD_RIGHT,     _s("D-pad Right") },
+	{ "JOY_UP",             Common::JOYSTICK_BUTTON_DPAD_UP,        _s("D-pad up")    },
+	{ "JOY_DOWN",           Common::JOYSTICK_BUTTON_DPAD_DOWN,      _s("D-pad down")  },
+	{ "JOY_LEFT",           Common::JOYSTICK_BUTTON_DPAD_LEFT,      _s("D-pad left")  },
+	{ "JOY_RIGHT",          Common::JOYSTICK_BUTTON_DPAD_RIGHT,     _s("D-pad right") },
 	{ nullptr,              0,                                      nullptr           }
 };
 

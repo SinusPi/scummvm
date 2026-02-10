@@ -21,11 +21,15 @@
 
 #include "audio/audiostream.h"
 #include "audio/mixer.h"
-#include "audio/softsynth/sid.h"
 
 #include "engines/freescape/games/driller/c64.music.h"
 
 namespace Freescape {
+
+enum DrillerFontSize {
+	kDrillerFontSmall,
+	kDrillerFontNormal,
+};
 
 class DrillerEngine : public FreescapeEngine {
 public:
@@ -41,6 +45,10 @@ public:
 	bool _useAutomaticDrilling;
 
 	DrillerSIDPlayer *_playerSid;
+
+	// Only used for Amiga and Atari ST
+	Font _fontSmall;
+	void drawString(const DrillerFontSize size, const Common::String &str, int x, int y, uint32 primaryColor, uint32 secondaryColor, uint32 backColor, Graphics::Surface *surface);
 
 	Common::HashMap<uint16, uint32> _drillStatusByArea;
 	Common::HashMap<uint16, uint32> _drillMaxScoreByArea;
@@ -115,6 +123,7 @@ private:
 	Texture *_borderExtraTexture;
 
 	Common::SeekableReadStream *decryptFileAtari(const Common::Path &filename);
+	Common::SeekableReadStream *decryptFileAtariVirtualWorlds(const Common::Path &filename);
 };
 
 enum DrillerReleaseFlags {

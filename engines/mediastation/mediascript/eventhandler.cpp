@@ -33,46 +33,24 @@ EventHandler::EventHandler(Chunk &chunk) {
 	_code = new CodeChunk(chunk);
 }
 
-ScriptValue EventHandler::execute(uint assetId) {
-	// TODO: The assetId is only passed in for debug visibility, there should be
+ScriptValue EventHandler::execute(uint actorId) {
+	// TODO: The actorId is only passed in for debug visibility, there should be
 	// a better way to handle that.
-	Common::String assetAndType = Common::String::format("(asset %d) (type = %s)", assetId, eventTypeToStr(_type));
-	Common::String argValue = getDebugHeader();
-	debugC(5, kDebugScript, "\n********** EVENT HANDLER %s %s **********", assetAndType.c_str(), argValue.c_str());
+	Common::String actorAndType = Common::String::format("(actor %d) (type = %s)", actorId, eventTypeToStr(_type));
+	Common::String argValue = Common::String::format("(%s)", _argumentValue.getDebugString().c_str());
+	debugC(5, kDebugScript, "\n********** EVENT HANDLER %s %s **********", actorAndType.c_str(), argValue.c_str());
 
 	// The only argument that can be provided to an
 	// event handler is the _argumentValue.
 	ScriptValue returnValue = _code->execute();
 
-	debugC(5, kDebugScript, "********** END EVENT HANDLER %s %s **********", assetAndType.c_str(), argValue.c_str());
+	debugC(5, kDebugScript, "********** END EVENT HANDLER %s %s **********", actorAndType.c_str(), argValue.c_str());
 	return returnValue;
 }
 
 EventHandler::~EventHandler() {
 	delete _code;
 	_code = nullptr;
-}
-
-Common::String EventHandler::getDebugHeader() {
-	switch (_argumentValue.getType()) {
-	case kScriptValueTypeEmpty:
-		return "(no argument)";
-
-	case kScriptValueTypeFloat:
-		return Common::String::format("(float = %f)", _argumentValue.asFloat());
-
-	case kScriptValueTypeAssetId:
-		return Common::String::format("(context = %d)", _argumentValue.asAssetId());
-
-	case kScriptValueTypeTime:
-		return Common::String::format("(time = %f)", _argumentValue.asTime());
-
-	case kScriptValueTypeParamToken:
-		return Common::String::format("(token = %d)", _argumentValue.asParamToken());
-
-	default:
-		return Common::String::format("(arg type %s)", scriptValueTypeToStr(_argumentValue.getType()));
-	}
 }
 
 } // End of namespace MediaStation

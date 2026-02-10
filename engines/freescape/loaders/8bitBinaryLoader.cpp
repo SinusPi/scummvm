@@ -601,7 +601,20 @@ static const char *eclipseRoomName[] = {
 	"PHARAOHS",
 	" SHABAKA",
 	"ILLUSION",
-	"????????"};
+	"????????"
+};
+
+static const char *eclipse2RoomName[] = {
+	"\" SAHARA",
+	"ENTRANCE",
+	"\" SPHINX",
+	"\"SELQUET",
+	"\" OSIRIS",
+	"\" THEBES",
+	"\" BEHBET",
+	"\"'l JINX",
+	"GAME OVER",
+};
 
 Area *FreescapeEngine::load8bitArea(Common::SeekableReadStream *file, uint16 ncolors) {
 
@@ -665,7 +678,11 @@ Area *FreescapeEngine::load8bitArea(Common::SeekableReadStream *file, uint16 nco
 	uint8 extraColor[4] = {};
 	if (isEclipse()) {
 		byte idx = readField(file, 8);
-		name = idx < 8 ? eclipseRoomName[idx] : eclipseRoomName[8];
+		if (isEclipse2()) {
+			name = idx < 8 ? eclipse2RoomName[idx] : eclipse2RoomName[8];
+		} else
+			name = idx < 8 ? eclipseRoomName[idx] : eclipseRoomName[8];
+
 		name = name + "-" + char(readField(file, 8)) + " ";
 
 		int i = 0;
@@ -768,7 +785,7 @@ Area *FreescapeEngine::load8bitArea(Common::SeekableReadStream *file, uint16 nco
 	uint8 numConditions = readField(file, 8);
 	debugC(1, kFreescapeDebugParser, "%d area conditions at %x of area %d", numConditions, base + cPtr, areaNumber);
 
-	Area *area = new Area(areaNumber, areaFlags, objectsByID, entrancesByID);
+	Area *area = new Area(areaNumber, areaFlags, objectsByID, entrancesByID, isCastle());
 	area->_name = name;
 	area->_scale = scale;
 	area->_skyColor = skyColor;
@@ -1083,6 +1100,7 @@ void FreescapeEngine::loadMessagesVariableSize(Common::SeekableReadStream *file,
 }
 
 void FreescapeEngine::loadGlobalObjects(Common::SeekableReadStream *file, int offset, int size) {
+	debugC(1, kFreescapeDebugParser, "Loading global objects");
 	assert(!_areaMap.contains(255));
 	ObjectMap *globalObjectsByID = new ObjectMap;
 	file->seek(offset);
@@ -1094,7 +1112,7 @@ void FreescapeEngine::loadGlobalObjects(Common::SeekableReadStream *file, int of
 		(*globalObjectsByID)[gobj->getObjectID()] = gobj;
 	}
 
-	_areaMap[255] = new Area(255, 0, globalObjectsByID, nullptr);
+	_areaMap[255] = new Area(255, 0, globalObjectsByID, nullptr, isCastle());
 }
 
 void FreescapeEngine::parseAmigaAtariHeader(Common::SeekableReadStream *stream) {

@@ -116,8 +116,10 @@ struct INV : public EngineData {
 
 		Common::String cantText;
 		Common::String cantTextNotHolding; // nancy2 only
+		Common::String cantTexts[3];       // Nancy9 and newer
 		SoundDescription cantSound;
 		SoundDescription cantSoundNotHolding; // nancy2 only
+		SoundDescription cantSounds[3];       // Nancy9 and newer
 	};
 
 	INV(Common::SeekableReadStream *chunkStream);
@@ -273,6 +275,7 @@ struct LOAD : public EngineData {
 	Common::Array<Common::Rect> _saveButtonDests;
 	Common::Array<Common::Rect> _loadButtonDests;
 	Common::Array<Common::Rect> _textboxBounds;
+	Common::Rect _inputTextboxBounds;
 	Common::Rect _doneButtonDest;
 	Common::Array<Common::Rect> _saveButtonDownSrcs;
 	Common::Array<Common::Rect> _loadButtonDownSrcs;

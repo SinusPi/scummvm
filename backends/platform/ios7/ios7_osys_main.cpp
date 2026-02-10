@@ -53,6 +53,7 @@
 #include "backends/mutex/pthread/pthread-mutex.h"
 #include "backends/fs/chroot/chroot-fs-factory.h"
 #include "backends/fs/posix/posix-fs.h"
+#include "backends/text-to-speech/avfaudio/avfaudio-text-to-speech.h"
 #include "audio/mixer.h"
 #include "audio/mixer_intern.h"
 
@@ -71,20 +72,17 @@ public:
 			: DefaultSaveFileManager(defaultSavepath), _sandboxRootPath(sandboxRootPath) {
 	}
 
-	bool removeSavefile(const Common::String &filename) override {
-		Common::Path chrootedFile = getSavePath().join(filename);
-		Common::Path realFilePath = _sandboxRootPath.join(chrootedFile);
+	Common::ErrorCode removeFile(const Common::FSNode &fileNode) override {
+		Common::Path chrootedFile(fileNode.getPath());
+		Common::Path realFilePath(_sandboxRootPath.join(chrootedFile));
 
-		if (remove(realFilePath.toString(Common::Path::kNativeSeparator).c_str()) != 0) {
-			if (errno == EACCES)
-				setError(Common::kWritePermissionDenied, "Search or write permission denied: "+chrootedFile.toString(Common::Path::kNativeSeparator));
-
-			if (errno == ENOENT)
-				setError(Common::kPathDoesNotExist, "removeSavefile: '"+chrootedFile.toString(Common::Path::kNativeSeparator)+"' does not exist or path is invalid");
-			return false;
-		} else {
-			return true;
-		}
+		if (remove(realFilePath.toString(Common::Path::kNativeSeparator).c_str()) == 0)
+			return Common::kNoError;
+		if (errno == EACCES)
+			return Common::kWritePermissionDenied;
+		if (errno == ENOENT)
+			return Common::kPathDoesNotExist;
+		return Common::kUnknownError;
 	}
 };
 
@@ -162,6 +160,11 @@ void OSystem_iOS7::initBackend() {
 	_startTime = CACurrentMediaTime();
 
 	_graphicsManager = new iOSGraphicsManager();
+
+#ifdef USE_TTS
+	// Initialize Text to Speech manager
+	_textToSpeechManager = new AVFAudioTextToSpeechManager();
+#endif
 
 	setupMixer();
 
@@ -409,6 +412,18 @@ void OSystem_iOS7::addSysArchivesToSearchSet(Common::SearchSet &s, int priority)
 
 void iOS7_buildSharedOSystemInstance() {
 	OSystem_iOS7::sharedInstance();
+}
+
+void iOS7_setSafeAreaInsets(int l, int r, int t, int b) {
+	ModularGraphicsBackend *sys = dynamic_cast<ModularGraphicsBackend *>(g_system);
+	if (!sys) {
+		return;
+	}
+	iOSGraphicsManager *gfx = dynamic_cast<iOSGraphicsManager *>(sys->getGraphicsManager());
+	if (!gfx) {
+		return;
+	}
+	gfx->setSafeAreaInsets(l, r, t, b);
 }
 
 TouchMode iOS7_getCurrentTouchMode() {

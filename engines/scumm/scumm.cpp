@@ -53,6 +53,7 @@
 #include "scumm/players/player_towns.h"
 #include "scumm/insane/insane.h"
 #include "scumm/he/animation_he.h"
+#include "scumm/he/font_he.h"
 #include "scumm/he/intern_he.h"
 #include "scumm/he/logic_he.h"
 #include "scumm/he/sound_he.h"
@@ -97,7 +98,7 @@
 #include "scumm/he/net/net_main.h"
 #include "scumm/dialog-sessionselector.h"
 #include "scumm/dialog-createsession.h"
-#ifdef USE_LIBCURL
+#ifdef USE_BASIC_NET
 #include "scumm/he/net/net_lobby.h"
 #endif
 #endif
@@ -260,7 +261,7 @@ ScummEngine::ScummEngine(OSystem *syst, const DetectorResult &dr)
 	g_scumm = this;
 
 	// Read settings from the detector & config manager
-	_debugMode = (gDebugLevel >= 0);
+	_debugMode = (gDebugLevel > 0);
 	_dumpScripts = ConfMan.getBool("dump_scripts");
 	_bootParam = ConfMan.getInt("boot_param");
 	// Boot params often need debugging switched on to work
@@ -807,7 +808,7 @@ ScummEngine_v90he::ScummEngine_v90he(OSystem *syst, const DetectorResult &dr)
 		_game.id == GID_MOONBASE) {
 		_net = new Net(this);
 	}
-#ifdef USE_LIBCURL
+#ifdef USE_BASIC_NET
 	_lobby = 0;
 	if (_game.id == GID_FOOTBALL || _game.id == GID_BASEBALL2001)
 		_lobby = new Lobby(this);
@@ -817,11 +818,11 @@ ScummEngine_v90he::ScummEngine_v90he(OSystem *syst, const DetectorResult &dr)
 	VAR_NUM_SPRITE_GROUPS = 0xFF;
 	VAR_NUM_SPRITES = 0xFF;
 	VAR_NUM_PALETTES = 0xFF;
-	VAR_NUM_UNK = 0xFF;
+	VAR_NUM_WINDOWS = 0xFF;
 	VAR_SPRITE_IMAGE_CHANGE_DOES_NOT_RESET_SETTINGS = 0xFF;
 
 	VAR_U32_VERSION = 0xFF;
-	VAR_U32_ARRAY_UNK = 0xFF;
+	VAR_U32_RESERVED = 0xFF;
 }
 
 ScummEngine_v90he::~ScummEngine_v90he() {
@@ -830,7 +831,7 @@ ScummEngine_v90he::~ScummEngine_v90he() {
 
 #ifdef USE_ENET
 	delete _net;
-#ifdef USE_LIBCURL
+#ifdef USE_BASIC_NET
 	delete _lobby;
 #endif
 #endif
@@ -841,6 +842,15 @@ ScummEngine_v90he::~ScummEngine_v90he() {
 	if (_game.heversion >= 99) {
 		free(_hePalettes);
 	}
+}
+
+ScummEngine_v99he::ScummEngine_v99he(OSystem *syst, const DetectorResult &dr) : ScummEngine_v95he(syst, dr) {
+	_heFont = new HEFont(this);
+}
+
+ScummEngine_v99he::~ScummEngine_v99he() {
+	delete _heFont;
+	_heFont = nullptr;
 }
 
 ScummEngine_v100he::ScummEngine_v100he(OSystem *syst, const DetectorResult &dr) : ScummEngine_v99he(syst, dr) {
@@ -1356,7 +1366,7 @@ Common::Error ScummEngine::init() {
 
 				GUI::MessageDialog dialog(Common::U32String::format(
 					_("Could not find the '%s' Macintosh executable to read resources from. %s will be disabled."),
-						gameName, (_game.id == GID_MONKEY2 || _game.version > 6) ? _s("The Mac GUI") : _s("The music and the Mac GUI")), _("OK"));
+						gameName, (_game.id == GID_MONKEY2 || _game.version > 6) ? _s("The Mac GUI") : _s("The music and the Mac GUI")));
 				dialog.runModal();
 			} else if (isUsingOriginalGUI() || _game.id == GID_INDY3 || _game.id == GID_LOOM) {
 				// FIXME: THIS IS A TEMPORARY WORKAROUND!
@@ -1522,6 +1532,46 @@ Common::Error ScummEngine::init() {
 	// some don't, so let's preventively set a default one.
 	if (!ConfMan.hasKey("talkspeed", _targetName))
 		setTalkSpeed(_defaultTextSpeed);
+
+#ifdef USE_TTS
+	Common::TextToSpeechManager *ttsMan = g_system->getTextToSpeechManager();
+	if (ttsMan) {
+		ttsMan->enable(ConfMan.getBool("tts_enabled"));
+		ttsMan->setLanguage(ConfMan.get("language"));
+	}
+#endif
+
+	for (int i = 0; i < ARRAYSIZE(_internalGUIControls); i++) {
+		_internalGUIControls[i].xPos = 0;
+		_internalGUIControls[i].relativeCenterX = -1;
+		_internalGUIControls[i].relativeCenterY = 0;
+		_internalGUIControls[i].xPos = 0;
+		_internalGUIControls[i].yPos = 0;
+		_internalGUIControls[i].normalFillColor = 0;
+		_internalGUIControls[i].topLineColor = 0;
+		_internalGUIControls[i].bottomLineColor = 0;
+		_internalGUIControls[i].leftLineColor = 0;
+		_internalGUIControls[i].rightLineColor = 0;
+		_internalGUIControls[i].normalTextColor = 0;
+		_internalGUIControls[i].highlightedTextColor = 0;
+		_internalGUIControls[i].highlightedFillColor = 0;
+		_internalGUIControls[i].centerText = false;
+		_internalGUIControls[i].label = "";
+#ifdef USE_TTS
+		_internalGUIControls[i].alternateTTSLabel = "";
+#endif
+		_internalGUIControls[i].doubleLinesFlag = false;
+	}
+
+#ifndef USE_FREETYPE2
+	if (_game.id == GID_FUNSHOP) {
+		GUI::MessageDialog dialog(_(
+			"It appears your ScummVM version was not built with TrueType Fonts support.\n\n"
+			"Since the One-Stop Fun Shop series makes extensive use of TTF fonts,\n"
+			"some of the graphics on screen will be missing."));
+		dialog.runModal();
+	}
+#endif
 
 	_setupIsComplete = true;
 
@@ -1780,8 +1830,7 @@ void ScummEngine_v7::setupScumm(const Common::Path &macResourceFile) {
 		GUI::MessageDialog dialog(_(
 			"Audio files compressed with ScummVM Tools were detected; *.BUN/*.SOU\n"
 			"compression is not supported anymore for this game, audio will be disabled.\n"
-			"Please copy the game from the original media without compression."),
-		_("OK"));
+			"Please copy the game from the original media without compression."));
 		dialog.runModal();
 		_imuseDigital->disableEngine();
 	}
@@ -1916,7 +1965,7 @@ void ScummEngine::resetScumm() {
 	for (i = 0; i < 256; i++)
 		_roomPalette[i] = i;
 
-	resetPalette();
+	resetPalette(true);
 	if (_game.version == 1) {
 	} else if (_game.features & GF_16COLOR) {
 		for (i = 0; i < 16; i++)
@@ -2270,8 +2319,7 @@ void ScummEngine::setupMusic(int midi) {
 			GUI::MessageDialog dialog(
 				Common::U32String::format(
 					_("Native MIDI support requires the Roland Upgrade from LucasArts,\n"
-					"but %s is missing. Using AdLib instead."), fileName.toString(Common::Path::kNativeSeparator).c_str()),
-				_("OK"));
+					"but %s is missing. Using AdLib instead."), fileName.toString(Common::Path::kNativeSeparator).c_str()));
 			dialog.runModal();
 			_sound->_musicType = MDT_ADLIB;
 		}
@@ -2286,8 +2334,7 @@ void ScummEngine::setupMusic(int midi) {
 		memcmp(_gameMD5, "\xa0\x1f\xab\x4a\x64\xd4\x7b\x96\xe2\xe5\x8e\x6b\x0f\x82\x5c\xc7", 16) == 0) {
 		GUI::MessageDialog dialog(
 			_("This particular version of Monkey Island 1 is known to miss some\n"
-			"required resources for MT-32. Using AdLib instead."),
-			_("OK"));
+			"required resources for MT-32. Using AdLib instead."));
 		dialog.runModal();
 		_sound->_musicType = MDT_ADLIB;
 	}
@@ -2342,7 +2389,7 @@ void ScummEngine::setupMusic(int midi) {
 		_musicEngine = new Player_AppleII(this, _mixer);
 	} else if (_game.platform == Common::kPlatformC64 && _game.version <= 1) {
 #ifdef USE_SID_AUDIO
-		_musicEngine = new Player_SID(this, _mixer);
+		_musicEngine = new Player_SID(this);
 #endif
 	} else if (_game.platform == Common::kPlatformNES && _game.version == 1) {
 #ifndef DISABLE_NES_APU
@@ -2583,6 +2630,9 @@ Common::Error ScummEngine::go() {
 	// If requested, load a save game instead of running the boot script
 	if (_saveLoadFlag != 2 || !loadState(_saveLoadSlot, _saveTemporaryState)) {
 		_saveLoadFlag = 0;
+		if (_game.platform == Common::kPlatformNES && _game.id == GID_MANIAC && !(_game.features & GF_DEMO)) {
+			playNESTitleScreens();
+		}
 		runBootscript();
 	} else {
 		_loadFromLauncher = true; // The only purpose of this is triggering the IQ points update for INDY3/4
@@ -2616,6 +2666,23 @@ Common::Error ScummEngine::go() {
 			}
 		}
 	}
+
+#ifdef ENABLE_HE
+	// Old "Spy Fox In: Cheese Chase" custom levels clash with the built-in levels.
+	// Assign them to the first player, 000.
+	if (strcmp(_game.gameid, "chase") == 0) {
+		Common::SaveFileManager *saveFileMan = g_system->getSavefileManager();
+		Common::StringArray filenames;
+		filenames = saveFileMan->listSavefiles(_targetName + "-chase???.???");
+
+		for (Common::StringArray::const_iterator file = filenames.begin(); file != filenames.end(); ++file) {
+			Common::String from = (*file).c_str();
+			Common::String to = (*file).c_str();
+			to.insertString("000-", from.size() - 12);
+			saveFileMan->renameSavefile(from, to);
+		}
+	}
+#endif // ENABLE_HE
 
 	while (!shouldQuit()) {
 		// Determine how long to wait before the next loop iteration should start
@@ -2703,6 +2770,9 @@ Common::Error ScummEngine::go() {
 			if (_game.heversion >= 60) {
 				((SoundHE *)_sound)->feedMixer();
 			}
+
+			if (VAR_LAST_FRAME_SCUMM_TIME != 0xFF)
+				VAR(VAR_LAST_FRAME_SCUMM_TIME) = _system->getMillis() - _lastWaitTime;
 		}
 
 		if (shouldQuit()) {
@@ -2727,6 +2797,9 @@ void ScummEngine::waitForTimer(int quarterFrames, bool freezeMacGui) {
 	uint32 diff = cur - _lastWaitTime;
 	msecDelay = (msecDelay > diff) ? msecDelay - diff : 0;
 	endTime = cur + msecDelay;
+
+	if (VAR_LAST_FRAME_BURN_TIME != 0xFF)
+		VAR(VAR_LAST_FRAME_BURN_TIME) = msecDelay;
 
 	while (!shouldQuit()) {
 		_sound->updateCD(); // Loop CD Audio if needed
@@ -2782,43 +2855,76 @@ uint32 ScummEngine::getIntegralTime(double fMsecs) {
 void ScummEngine::setTimerAndShakeFrequency() {
 	_shakeTimerRate = _timerFrequency = 240.0;
 
-	if (_game.platform == Common::kPlatformDOS || _game.platform == Common::kPlatformWindows || _game.platform == Common::kPlatformUnknown) {
-		switch (_game.version) {
-		case 1:
-			if (_game.id == GID_MANIAC) {
-				// In MANIAC V1, one tick represents three frames,
-				// i.e., 12 quarter-frames.
-				_shakeTimerRate = _timerFrequency = PIT_BASE_FREQUENCY / PIT_V1_DIVISOR * 12;
-			} else {
+	if (_game.heversion == 0) {
+		if (_game.platform == Common::kPlatformDOS || _game.platform == Common::kPlatformWindows || _game.platform == Common::kPlatformUnknown) {
+			switch (_game.version) {
+			case 1:
+				if (_game.id == GID_MANIAC) {
+					// In MANIAC V1, one tick represents three frames,
+					// i.e., 12 quarter-frames.
+					_shakeTimerRate = _timerFrequency = PIT_BASE_FREQUENCY / PIT_V1_DIVISOR * 12;
+				} else {
+					_shakeTimerRate = _timerFrequency = PIT_BASE_FREQUENCY / PIT_V2_4_DIVISOR;
+				}
+				break;
+			case 2:
+			case 3:
+			case 4:
 				_shakeTimerRate = _timerFrequency = PIT_BASE_FREQUENCY / PIT_V2_4_DIVISOR;
+				break;
+			case 5:
+				_shakeTimerRate = _timerFrequency = PIT_BASE_FREQUENCY / PIT_V5_6_ORCHESTRATOR_DIVISOR;
+				_timerFrequency *= PIT_V5_6_SUBTIMER_INC / PIT_V5_SUBTIMER_THRESH;
+				break;
+			case 6:
+				_shakeTimerRate = _timerFrequency = PIT_BASE_FREQUENCY / PIT_V5_6_ORCHESTRATOR_DIVISOR;
+				if (_game.id == GID_TENTACLE) {
+					_timerFrequency *= PIT_V5_6_SUBTIMER_INC / PIT_V6_DOTT_SUBTIMER_THRESH;
+				} else {
+					_timerFrequency *= PIT_V5_6_SUBTIMER_INC / PIT_V6_SAMNMAX_SUBTIMER_THRESH;
+				}
+				break;
+			case 7:
+				_shakeTimerRate = _timerFrequency = PIT_BASE_FREQUENCY / PIT_V7_ORCHESTRATOR_DIVISOR;
+				_timerFrequency *= PIT_V7_SUBTIMER_INC / PIT_V7_SUBTIMER_THRESH;
+				break;
+			default:
+				_shakeTimerRate = _timerFrequency = 240.0;
 			}
-			break;
-		case 2:
-		case 3:
-		case 4:
-			_shakeTimerRate = _timerFrequency = PIT_BASE_FREQUENCY / PIT_V2_4_DIVISOR;
-			break;
-		case 5:
-			_shakeTimerRate = _timerFrequency = PIT_BASE_FREQUENCY / PIT_V5_6_ORCHESTRATOR_DIVISOR;
-			_timerFrequency *= PIT_V5_6_SUBTIMER_INC / PIT_V5_SUBTIMER_THRESH;
-			break;
-		case 6:
-			_shakeTimerRate = _timerFrequency = PIT_BASE_FREQUENCY / PIT_V5_6_ORCHESTRATOR_DIVISOR;
-			if (_game.id == GID_TENTACLE) {
-				_timerFrequency *= PIT_V5_6_SUBTIMER_INC / PIT_V6_DOTT_SUBTIMER_THRESH;
+		} else if (_game.platform == Common::kPlatformAmiga && _game.id != GID_MONKEY_VGA) {
+			_shakeTimerRate = _timerFrequency = _isAmigaPALSystem ? AMIGA_PAL_VBLANK_RATE : AMIGA_NTSC_VBLANK_RATE;
+		}
+	} else {
+		if (_game.heversion < 70 && _game.platform == Common::kPlatformDOS) {
+			// HE6x DOS games use a slightly different (but not really...)
+			// mechanism to increment "piffies" (a quarter of a jiffy).
+			//
+			// Fatty Bear, Putt-Putt's Fun Pack:
+			//   - PIT divisor: 0x5555 (21845) -> ~54.6 Hz timer interrupt
+			//   - The piffy value is directly incremented by 4 on every interrupt
+			//   - Effective jiffy rate: 54.6 Hz
+			//
+			// Putt-Putt (1&2), Fatty Bear's Fun Pack, Putt-Putt & Fatty Bear's Activity Pack:
+			//   - PIT divisor: 0x2492 (9362) -> ~127.5 Hz timer interrupt
+			//   - The piffy value is directly incremented by 4 on every *other* interrupt
+			//   - Effective jiffy rate: 63.75 Hz
+			//
+			// The multiplication by 4 below re-adapts these jiffy rates to our quarter-frame system.
+
+			if (_game.id == GID_FBEAR || _game.id == GID_FUNPACK) {
+				_shakeTimerRate = _timerFrequency = PIT_BASE_FREQUENCY / PIT_HE_FATTY_BEAR_DIVISOR * 4.0;
+			} else if (_game.id == GID_PUTTDEMO ||
+					   _game.id == GID_PUTTMOON ||
+					   Common::String(_game.gameid).equals("puttputt") ||
+					   Common::String(_game.gameid).equals("activity") ||
+					   Common::String(_game.gameid).equals("fbpack")) {
+				_shakeTimerRate = _timerFrequency = PIT_BASE_FREQUENCY / PIT_HE_PUTT_PUTT_DIVISOR / 2.0 * 4.0;
 			} else {
-				_timerFrequency *= PIT_V5_6_SUBTIMER_INC / PIT_V6_SAMNMAX_SUBTIMER_THRESH;
+				_shakeTimerRate = _timerFrequency = 240.0;
 			}
-			break;
-		case 7:
-			_shakeTimerRate = _timerFrequency = PIT_BASE_FREQUENCY / PIT_V7_ORCHESTRATOR_DIVISOR;
-			_timerFrequency *= PIT_V7_SUBTIMER_INC / PIT_V7_SUBTIMER_THRESH;
-			break;
-		default:
+		} else {
 			_shakeTimerRate = _timerFrequency = 240.0;
 		}
-	} else if (_game.platform == Common::kPlatformAmiga && _game.id != GID_MONKEY_VGA) {
-		_shakeTimerRate = _timerFrequency = _isAmigaPALSystem ? AMIGA_PAL_VBLANK_RATE : AMIGA_NTSC_VBLANK_RATE;
 	}
 }
 
@@ -2894,6 +3000,28 @@ void ScummEngine::scummLoop(int delta) {
 	_talkDelay -= delta;
 	if (_talkDelay < 0)
 		_talkDelay = 0;
+
+#ifdef USE_TTS
+	if (_game.id == GID_PASS && _roomResource == 2) {
+		int obj = findObject(_mouse.x, _mouse.y);
+		if (obj != 0) {
+			int adjustedObj = obj - 956;
+			if (adjustedObj >= 0 && adjustedObj < ARRAYSIZE(_passHelpButtons) && _previousSaid != _passHelpButtons[adjustedObj]) {
+				if (_voicePassHelpButtons) {
+					sayText(_passHelpButtons[adjustedObj], Common::TextToSpeechManager::INTERRUPT);
+				}
+
+				_previousSaid = _passHelpButtons[adjustedObj];
+			}
+		} else {
+			_previousSaid.clear();
+		}
+
+		if (_mouseAndKeyboardStat & MBS_MOUSE_MASK) {
+			stopTextToSpeech();
+		}
+	}
+#endif
 
 	// Record the current ego actor before any scripts (including input scripts)
 	// get a chance to run.
@@ -4003,7 +4131,7 @@ bool ScummEngine::isUsingOriginalGUI() const {
 	if (_game.platform == Common::kPlatformPCEngine)
 		return false;
 
-	if (_game.heversion != 0)
+	if (_game.heversion >= 70)
 		return false;
 
 	return _useOriginalGUI;
@@ -4193,7 +4321,7 @@ void ScummEngine::confirmRestartDialog() {
 	}
 }
 
-char ScummEngine::displayMessage(const char *altButton, const char *message, ...) {
+char ScummEngine::displayMessage(const char *message, ...) {
 	char buf[STRINGBUFLEN];
 	va_list va;
 
@@ -4201,7 +4329,7 @@ char ScummEngine::displayMessage(const char *altButton, const char *message, ...
 	vsnprintf(buf, STRINGBUFLEN, message, va);
 	va_end(va);
 
-	GUI::MessageDialog dialog(buf, "OK", altButton);
+	GUI::MessageDialog dialog(buf);
 	return runDialog(dialog);
 }
 
@@ -4214,6 +4342,18 @@ bool ScummEngine::displayMessageYesNo(const char *message, ...) {
 	va_end(va);
 
 	GUI::MessageDialog dialog(buf, _("Yes"), _("No"));
+	return runDialog(dialog) == GUI::kMessageOK;
+}
+
+bool ScummEngine::displayMessageOKQuit(const char *message, ...) {
+	char buf[STRINGBUFLEN];
+	va_list va;
+
+	va_start(va, message);
+	vsnprintf(buf, STRINGBUFLEN, message, va);
+	va_end(va);
+
+	GUI::MessageDialog dialog(buf, _("OK"), _("Quit"));
 	return runDialog(dialog) == GUI::kMessageOK;
 }
 

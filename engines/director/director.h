@@ -93,6 +93,8 @@ enum {
 	kDebugImGui,
 	kDebugPaused,
 	kDebugPauseOnLoad,
+	kDebugSaving,
+	kDebugPaths,
 };
 
 enum {
@@ -199,8 +201,8 @@ public:
 	void shiftPalette(int startIndex, int endIndex, bool reverse);
 	void syncPalette();
 	void clearPalettes();
-	PaletteV4 *getPalette(const CastMemberID &id);
-	bool hasPalette(const CastMemberID &id);
+	PaletteV4 *getPalette(CastMemberID id);
+	bool hasPalette(CastMemberID id);
 	void loadDefaultPalettes();
 
 	const Common::HashMap<CastMemberID, PaletteV4> &getLoadedPalettes() { return _loadedPalettes; }
@@ -266,13 +268,13 @@ public:
 	Common::HashMap<int, int> _KeyCodes;
 	int _machineType;
 	bool _playbackPaused;
-	bool _skipFrameAdvance;
 	bool _centerStage;
 	char _dirSeparator;
 	bool _fixStageSize;
 	Archive *_mainArchive;
 	Common::Rect _fixStageRect;
 	Common::List<Common::String> _extraSearchPath;
+	bool _emulateMultiButtonMouse;
 
 	// Owner of all Archive objects.
 	Common::HashMap<Common::Path, Archive *, Common::Path::IgnoreCaseAndMac_Hash, Common::Path::IgnoreCaseAndMac_EqualTo> _allSeenResFiles;
@@ -289,6 +291,7 @@ protected:
 
 public:
 	const DirectorGameDescription *_gameDescription;
+	Common::HashMap<Common::String, Common::String> _cachedSaveFiles;
 	Common::FSNode _gameDataDir;
 	CastMemberID *_clipBoard;
 	uint32 _wmMode;
@@ -301,6 +304,8 @@ public:
 	TimeDate _forceDate;
 	uint32 _loadSlowdownFactor;
 	uint32 _loadSlowdownCooldownTime;
+	int _fileIOType;
+	bool _vfwPaletteHack;
 
 private:
 	byte _currentPalette[768];

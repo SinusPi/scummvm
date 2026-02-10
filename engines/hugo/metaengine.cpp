@@ -36,6 +36,37 @@
 
 namespace Hugo {
 
+#ifdef USE_TTS
+
+static const ADExtraGuiOptionsMap optionsList[] = {
+	{
+		GAMEOPTION_WINDOWS_INTERFACE,
+		{
+			_s("Use Windows interface"),
+			_s("Use mouse and toolbar from Windows version"),
+			"use_windows_interface",
+			false,
+			0,
+			0
+		}
+	},
+	{
+		GAMEOPTION_TTS,
+		{
+			_s("Enable Text to Speech"),
+			_s("Use TTS to read text in the game (if TTS is available)"),
+			"tts_enabled",
+			false,
+			0,
+			0
+		}
+	},
+
+	AD_EXTRA_GUI_OPTIONS_TERMINATOR
+};
+
+#endif
+
 uint32 HugoEngine::getFeatures() const {
 	return _gameDescription->desc.flags;
 }
@@ -49,6 +80,12 @@ public:
 	const char *getName() const override {
 		return "hugo";
 	}
+
+#ifdef USE_TTS
+	const ADExtraGuiOptionsMap *getAdvancedExtraGuiOptions() const override {
+		return optionsList;
+	}
+#endif
 
 	Common::Error createInstance(OSystem *syst, Engine **engine, const HugoGameDescription *gd) const override;
 	bool hasFeature(MetaEngineFeature f) const override;
@@ -94,14 +131,14 @@ Common::KeymapArray HugoMetaEngine::initKeymaps(const char *target) const {
 
 	Action *act;
 
-	act = new Action(kStandardActionLeftClick, _("Left Click"));
+	act = new Action(kStandardActionLeftClick, _("Left click"));
 	act->setLeftClickEvent();
 	act->addDefaultInputMapping("MOUSE_LEFT");
 	act->addDefaultInputMapping("JOY_A");
 	act->addDefaultInputMapping("KP_PLUS");
 	engineKeyMap->addAction(act);
 
-	act = new Action(kStandardActionRightClick, _("Right Click"));
+	act = new Action(kStandardActionRightClick, _("Right click"));
 	act->setRightClickEvent();
 	act->addDefaultInputMapping("MOUSE_RIGHT");
 	act->addDefaultInputMapping("JOY_B");
@@ -159,7 +196,7 @@ Common::KeymapArray HugoMetaEngine::initKeymaps(const char *target) const {
 
 	act = new Action("ESC", _("Escape"));
 	act->setCustomEngineActionEvent(kActionEscape);
-	act->addDefaultInputMapping("Escape");
+	act->addDefaultInputMapping("ESCAPE");
 	act->addDefaultInputMapping("JOY_BACK");
 	engineKeyMap->addAction(act);
 

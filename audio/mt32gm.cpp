@@ -28,15 +28,22 @@
 #include "common/debug.h"
 
 // The initialization of the static const integral data members is done in the class definition,
-// but we still need to provide a definition if they are odr-used.
+// but we still need to provide a definition if they are odr-used (e.g. GCC 4.7 wants this).
 const uint8 MidiDriver_MT32GM::MT32_DEFAULT_CHANNEL_VOLUME;
 const uint8 MidiDriver_MT32GM::GM_DEFAULT_CHANNEL_VOLUME;
 const uint8 MidiDriver_MT32GM::MAXIMUM_MT32_ACTIVE_NOTES;
 const uint8 MidiDriver_MT32GM::MAXIMUM_GM_ACTIVE_NOTES;
+const uint8 MidiDriver_BASE::MT32_PITCH_BEND_SENSITIVITY_DEFAULT;
+const uint8 MidiDriver_BASE::GM_PITCH_BEND_SENSITIVITY_DEFAULT;
 
 // These are the power-on default instruments of the Roland MT-32 family.
 const byte MidiDriver_MT32GM::MT32_DEFAULT_INSTRUMENTS[8] = {
 	0x44, 0x30, 0x5F, 0x4E, 0x29, 0x03, 0x6E, 0x7A
+};
+
+// Same as above, now numbered by MIDI channel. For use with setControllerDefaults.
+const int16 MidiDriver_MT32GM::MT32_DEFAULT_INSTRUMENTS_CONTROLLER_DEFAULTS[16] = {
+	-1, 0x44, 0x30, 0x5F, 0x4E, 0x29, 0x03, 0x6E, 0x7A, -1, -1, -1, -1, -1, -1, -1
 };
 
 // These are the power-on default panning settings for channels 2-9 of the Roland MT-32 family.
@@ -962,7 +969,7 @@ uint16 MidiDriver_MT32GM::sysExMT32(const byte *msg, uint16 length, const uint32
 	return 0;
 }
 
-void MidiDriver_MT32GM::metaEvent(int8 source, byte type, byte *data, uint16 length) {
+void MidiDriver_MT32GM::metaEvent(int8 source, byte type, const byte *data, uint16 length) {
 	assert(source < MAXIMUM_SOURCES);
 
 	if (type == 0x2F && source >= 0) // End of Track

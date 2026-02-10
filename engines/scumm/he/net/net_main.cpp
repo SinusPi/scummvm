@@ -131,12 +131,12 @@ int Net::hostGame(char *sessionName, char *userName) {
 			_userIdToPeerIndex[_myUserId] = -1;
 			return 1;
 		} else {
-			_vm->displayMessage(0, "Error Adding User \"%s\" to Session \"%s\"", userName, sessionName);
+			_vm->displayMessage("Error Adding User \"%s\" to Session \"%s\"", userName, sessionName);
 			endSession();
 			closeProvider();
 		}
 	} else {
-		_vm->displayMessage(0, "Error creating session \"%s\"", userName );
+		_vm->displayMessage("Error creating session \"%s\"", userName );
 
 		closeProvider();
 	}
@@ -453,7 +453,7 @@ int Net::doJoinSession(Session session) {
 					return true;
 			}
 		}
-		_vm->displayMessage(0, "Unable to join game session with address \"%s:%d\"", session.host.c_str(), session.port);
+		_vm->displayMessage("Unable to join game session with address \"%s:%d\"", session.host.c_str(), session.port);
 		return false;
 	}
 
@@ -766,9 +766,9 @@ bool Net::initProvider() {
 	// Create a new ENet instance and initialize the library.
 	if (_enet)
 		return true;
-	_enet = new Networking::ENet();
+	_enet = new Networking::ENet::ENet();
 	if (!_enet->initialize()) {
-		_vm->displayMessage(0, "Unable to initialize ENet library.");
+		_vm->displayMessage("Unable to initialize ENet library.");
 		Net::closeProvider();
 		return false;
 	}
@@ -825,7 +825,7 @@ int Net::remoteSendData(int typeOfSend, int sendTypeParam, int type, Common::Str
 		reliable == true ? "true" : "false", data.c_str());
 
 	debugC(DEBUG_NETWORK, "NETWORK: Sending data: %s", res.c_str());
-	Common::JSONValue *str = Common::JSON::parse(res.c_str());
+	Common::JSONValue *str = Common::JSON::parse(res);
 	if (_isHost) {
 		_hostDataQueue.push(str);
 		_peerIndexQueue.push(sendTypeParam - 1);
@@ -975,7 +975,7 @@ void Net::serviceSessionServer() {
 void Net::handleSessionServerData(Common::String data) {
 	debugC(DEBUG_NETWORK, "NETWORK: Received data from session server.  Data: %s", data.c_str());
 
-	Common::JSONValue *json = Common::JSON::parse(data.c_str());
+	Common::JSONValue *json = Common::JSON::parse(data);
 	if (!json) {
 		warning("NETWORK: Received non-JSON string from session server, \"%s\", ignoring", data.c_str());
 		return;
@@ -1126,7 +1126,7 @@ bool Net::serviceBroadcast() {
 void Net::handleBroadcastData(Common::String data, Common::String host, int port) {
 	debugC(DEBUG_NETWORK, "NETWORK: Received data from broadcast socket.  Source: %s:%d  Data: %s", host.c_str(), port, data.c_str());
 
-	Common::JSONValue *json = Common::JSON::parse(data.c_str());
+	Common::JSONValue *json = Common::JSON::parse(data);
 	if (!json) {
 		// Just about anything could come from the broadcast address, so do not warn.
 		debugC(DEBUG_NETWORK, "NETWORK: Not a JSON string, ignoring.");
@@ -1243,7 +1243,7 @@ void Net::remoteReceiveData() {
 			if (_gameName == "moonbase") {
 				// TODO: Host migration
 				if (!_isHost && _vm->_currentRoom == 2) {
-					_vm->displayMessage(0, "You have been disconnected from the game host.\nNormally, host migration would take place, but ScummVM doesn't do that yet, so this game session will now end.");
+					_vm->displayMessage("You have been disconnected from the game host.\nNormally, host migration would take place, but ScummVM doesn't do that yet, so this game session will now end.");
 					_vm->VAR(253) = 26; // gGameMode = GAME-OVER
 					_vm->runScript(2104, 1, 0, 0); // leave-game
 				}
@@ -1271,7 +1271,7 @@ void Net::remoteReceiveData() {
 				break;
 			}
 
-			Common::JSONValue *json = Common::JSON::parse(data.c_str());
+			Common::JSONValue *json = Common::JSON::parse(data);
 			if (!json) {
 				// Just about anything could come from the broadcast address, so do not warn.
 				warning("NETWORK: Received non-JSON string.  Got: \"%s\"", data.c_str());
@@ -1404,7 +1404,7 @@ void Net::handleGameData(Common::JSONValue *json, int peerIndex) {
 				if (paramsArray[0]->asIntegerNumber() == 145 && _fromUserId == 1) {
 					if (!_isHost && _vm->_currentRoom == 2) {
 						// TODO: Host migration
-						_vm->displayMessage(0, "You have been disconnected from the game host.\nNormally, host migration would take place, but ScummVM doesn't do that yet, so this game session will now end.");
+						_vm->displayMessage("You have been disconnected from the game host.\nNormally, host migration would take place, but ScummVM doesn't do that yet, so this game session will now end.");
 						_vm->VAR(253) = 26; // GAME-OVER
 						_vm->runScript(2104, 1, 0, 0); // leave-game
 						return;

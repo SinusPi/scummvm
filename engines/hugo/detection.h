@@ -54,6 +54,9 @@ struct HugoGameDescription {
 	GameType gameType;
 };
 
+#define GAMEOPTION_TTS               GUIO_GAMEOPTIONS1
+#define GAMEOPTION_WINDOWS_INTERFACE GUIO_GAMEOPTIONS2
+
 } // End of namespace Hugo
 
 #endif // HUGO_DETECTION_H

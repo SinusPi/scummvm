@@ -231,7 +231,7 @@ void ScummEngine::askForDisk(const Common::Path &filename, int disknum) {
 				ConfMan.getPath("path").toString(Common::Path::kNativeSeparator).c_str());
 #endif
 
-		result = displayMessage("Quit", "%s", buf);
+		result = displayMessageOKQuit("%s", buf);
 		if (!result) {
 			error("Cannot find file: '%s'", filename.toString(Common::Path::kNativeSeparator).c_str());
 		}
@@ -293,7 +293,7 @@ void ScummEngine::readIndexFile() {
 	}
 
 	if (checkTryMedia(_fileHandle)) {
-		displayMessage(nullptr, "You're trying to run game encrypted by ActiveMark. This is not supported.");
+		displayMessage("You're trying to run game encrypted by ActiveMark. This is not supported.");
 		quitGame();
 
 		return;
@@ -858,16 +858,36 @@ byte *ResourceManager::createResource(ResType type, ResId idx, uint32 size) {
 		// cases. For instance, Zak tries to reload the intro music
 		// while it's playing. See bug #2115.
 
-		if (_types[type][idx]._address && (type == rtSound || type == rtScript || type == rtCostume))
+		if (_types[type][idx]._address && (type == rtSound || type == rtScript || type == rtCostume)) {
+			_vm->_insideCreateResource--;
 			return _types[type][idx]._address;
+		}
 	}
 
-	nukeResource(type, idx);
+	// HE70+ reuses the resource without deallocating it if it has the same size.
+	// 
+	// Not replicating this behavior this can creare very rare gfx corruption issues, e.g.
+	// #13864 ("SCUMM/HE: Blue's Treasure Hunt - Missing Backgrounds during some animations"),
+	// in which a WIZ transparent (color 5) image is prepared for it to serve as a canvas for
+	// some Smacker videos, only for the former to be nuked and replaced with an all 0 (black)
+	// empty image.
+	// 
+	// This is just one of the many differences of our system versus the HE resource allocation system...
+	// The whole thing should probably be rewritten at some point to match the source code. ;-)
+	if (_vm->_game.heversion >= 70 && _types[type][idx]._address && _types[type][idx]._size == size) {
+		increaseResourceCounters();
+		setResourceCounter(type, idx, 1);
+		_vm->_insideCreateResource--;
+		return _types[type][idx]._address;
+	} else {
+		nukeResource(type, idx);
+	}
 
 	expireResources(size);
 
 	byte *ptr = new byte[size + SAFETY_AREA]();
 	if (ptr == nullptr) {
+		_vm->_insideCreateResource--;
 		error("createResource(%s,%d): Out of memory while allocating %d", nameOfResType(type), idx, size);
 	}
 
@@ -1698,6 +1718,64 @@ void ScummEngine::applyWorkaroundIfNeeded(ResType type, int idx) {
 		return;
 
 	int size = getResourceSize(type, idx);
+	
+	// WORKAROUND: The MI2 DOS NI demo relies on a prerecorded save file ("demo.rec") to start correctly.
+	// Without it, the demo can select an invalid path and attempt to load missing rooms.
+	// We patch script 77 to force the intended startup behavior so the demo begins in a valid scene.
+	// ScummVM does not currently support playback of the 'demo.rec' file so it will crash in other places.
+	if (_game.id == GID_MONKEY2 &&
+		(_game.features & GF_DEMO) &&
+		_game.platform == Common::kPlatformDOS &&
+		_game.version == 5 &&
+		enhancementEnabled(kEnhRestoredContent)) {
+
+		if (type == rtScript && idx == 77) {
+			byte *scriptRes = getResourceAddress(type, idx);
+			const uint32 scriptResSize = (size > 0) ? (uint32)size : 0;
+
+			byte *code = scriptRes + 8;
+			const uint32 codeSize = scriptResSize - 8;
+
+			const byte putActorInRoom4Pattern[] = { 0x2D, 0x01, 0x04, 0x01, 0x01 };
+
+			if (codeSize >= (uint32)sizeof(putActorInRoom4Pattern)) {
+				for (uint32 i = 0; i + (uint32)sizeof(putActorInRoom4Pattern) <= codeSize; ++i) {
+					if (memcmp(code + i, putActorInRoom4Pattern, sizeof(putActorInRoom4Pattern)) == 0) {
+						code[i + 2] = 0x03;
+						break;
+					}
+				}
+			}
+
+			const byte overrideInstallPattern[] = { 0x58, 0x01, 0x18, 0x1E, 0x00 };
+
+			if (codeSize >= (uint32)sizeof(overrideInstallPattern)) {
+				for (uint32 i = 0; i + (uint32)sizeof(overrideInstallPattern) <= codeSize; ++i) {
+					if (memcmp(code + i, overrideInstallPattern, sizeof(overrideInstallPattern)) == 0) {
+						code[i + 0] = 0x58;
+						code[i + 1] = 0x00;
+						code[i + 2] = 0x80;
+						code[i + 3] = 0x80;
+						code[i + 4] = 0x80;
+						break;
+					}
+				}
+			}
+
+			const byte overrideDecisionTestPattern[] = { 0xA8, 0x05, 0x00, 0x2D, 0x00 };
+			const byte setOverrideVarTrue[] = { 0x1A, 0x05, 0x00, 0x01, 0x00 };
+
+			if (codeSize >= (uint32)sizeof(overrideDecisionTestPattern)) {
+				for (uint32 i = 0; i + (uint32)sizeof(overrideDecisionTestPattern) <= codeSize; ++i) {
+					if (memcmp(code + i, overrideDecisionTestPattern, sizeof(overrideDecisionTestPattern)) == 0) {
+						memcpy(code + i, setOverrideVarTrue, sizeof(setOverrideVarTrue));
+						break;
+					}
+				}
+			}
+		}
+	}
+
 
 	// WORKAROUND: FM-TOWNS Zak used the extra 40 pixels at the bottom to increase the inventory to 10 items
 	// if we trim to 200 pixels, we can show only 6 items

@@ -533,6 +533,7 @@ static void detectGames(const Common::FSList &fslist, Common::List<DetectorResul
 				d.md5Entry = findInMD5Table(md5str.c_str());
 
 				if (!d.md5Entry && (platform == Common::Platform::kPlatformMacintosh || platform == Common::Platform::kPlatformUnknown)) {
+					tmp->seek(0);
 					Common::SeekableReadStream *dataStream = Common::MacResManager::openDataForkFromMacBinary(tmp);
 					if (dataStream) {
 						Common::String dataMD5 = computeStreamMD5AsString(*dataStream, kMD5FileSizeLimit);
@@ -623,7 +624,7 @@ static void detectGames(const Common::FSList &fslist, Common::List<DetectorResul
 
 			// Detect if there are speech files in this unknown game.
 			if (detectSpeech(fslist, g)) {
-				if (strchr(dr.game.guioptions, GUIO_NOSPEECH[0]) != NULL) {
+				if (strstr(dr.game.guioptions, GUIO_NOSPEECH) != NULL) {
 					if (g->id == GID_MONKEY || g->id == GID_MONKEY2)
 						// TODO: This may need to be updated if something important gets added
 						// in the top detection table for these game ids.
@@ -873,9 +874,7 @@ static Common::String customizeGuiOptions(const DetectorResult &res) {
 		for (int i = 0; i < ARRAYSIZE(mtypes); ++i) {
 			if (!mtypes[i])
 				continue;
-			uint pos = guiOptions.findFirstOf(MidiDriver::musicType2GUIO(mtypes[i]));
-			if (pos != Common::String::npos)
-				guiOptions.erase(pos, 1);
+			Common::replace(guiOptions, MidiDriver::musicType2GUIO(mtypes[i]), Common::String());
 		}
 	}
 
@@ -894,9 +893,7 @@ static Common::String customizeGuiOptions(const DetectorResult &res) {
 	static const char *const rmodes[] = { GUIO_RENDERHERCGREEN, GUIO_RENDERHERCAMBER, GUIO_RENDERCGABW, GUIO_RENDERCGACOMP, GUIO_RENDERCGA };
 	if (res.game.platform == Common::kPlatformAmiga) {
 		for (int i = 0; i < ARRAYSIZE(rmodes); ++i) {
-			uint pos = guiOptions.findFirstOf(rmodes[i][0]);
-			if (pos != Common::String::npos)
-				guiOptions.erase(pos, 1);
+			Common::replace(guiOptions, rmodes[i], Common::String());
 		}
 	}
 

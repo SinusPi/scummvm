@@ -59,7 +59,7 @@ public:
 
 	bool hasField(int field) override;
 	Datum getField(int field) override;
-	bool setField(int field, const Datum &value) override;
+	void setField(int field, const Datum &value) override;
 
 	bool hasChunkField(int field);
 	Datum getChunkField(int field, int start, int end);
@@ -85,10 +85,19 @@ public:
 	void setTextStyle(const Common::String &textStyle);
 	void setTextStyle(const Common::String &textStyle, int start, int end);
 
+	void scrollByLine(int count);
+
 	Common::String formatInfo() override;
 
 	void load() override;
 	void unload() override;
+
+	void writeCastData(Common::SeekableWriteStream *writeStream) override;
+	uint32 getCastDataSize() override;			// This is the size of the data in the 'CASt' resource
+
+	uint32 getSTXTResourceSize();
+	uint32 writeSTXTResource(Common::SeekableWriteStream *writeStream, uint32 offset);
+	uint8 getFormattingCount();
 
 	uint8 _borderSize;
 	uint8 _gutterSize;
@@ -97,6 +106,8 @@ public:
 	uint16 _textHeight;
 
 	uint32 _fontId;
+	uint16 _height;
+	uint16 _ascent;
 	uint16 _fontSize;
 	TextType _textType;
 	TextAlignType _textAlign;

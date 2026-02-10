@@ -339,6 +339,8 @@ void Room704::parser() {
 	} // talkFl && player_said("MONK #8")
 
 	else if (lookFl && player_said("GRATE")) {
+		player_set_commands_allowed(false);
+
 		switch (_G(kernel).trigger) {
 		case -1:
 			player_update_info(_G(my_walker), &_G(player_info));
@@ -569,7 +571,7 @@ void Room704::parser() {
 			player_set_commands_allowed(true);
 			adv_kill_digi_between_rooms(false);
 			digi_play_loop("950_s39", 3, 255, -1, -1);
-			_G(game).new_room = 707;
+			_G(game).setRoom(707);
 
 			break;
 
@@ -587,7 +589,7 @@ void Room704::parser() {
 		case 4:
 			adv_kill_digi_between_rooms(false);
 			digi_play_loop("950_s39", 3, 255, -1, -1);
-			_G(game).new_room = 705;
+			_G(game).setRoom(705);
 
 			break;
 
@@ -603,7 +605,7 @@ void Room704::parser() {
 		case 4:
 			adv_kill_digi_between_rooms(false);
 			digi_play_loop("950_s39", 3, 255, -1, -1);
-			_G(game).new_room = 703;
+			_G(game).setRoom(703);
 
 			break;
 
@@ -903,6 +905,7 @@ void Room704::conv704a() {
 	const int32 who = conv_whos_talking();
 	if (who <= 0) {
 		_field5C_should = 121;
+		_G(kernel).trigger_mode = KT_DAEMON;
 		kernel_timing_trigger(10, 127, nullptr);
 		_G(kernel).trigger_mode = KT_PARSE;
 	} else if (who == 1) {
@@ -1087,7 +1090,7 @@ void Room704::useWheelOnNiche(int32 trigger, int val1) {
 	case 112:
 		adv_kill_digi_between_rooms(false);
 		digi_play_loop("950_s39", 3, 255, -1, -1);
-		_G(game).new_room = 705;
+		_G(game).setRoom(705);
 
 		break;
 

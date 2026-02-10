@@ -36,20 +36,29 @@ CodeChunk::CodeChunk(Chunk &chunk) {
 
 ScriptValue CodeChunk::executeNextBlock() {
 	uint blockSize = _bytecode->readTypedUint32();
-	uint startingPos = _bytecode->pos();
+	int64 startingPos = _bytecode->pos();
+	debugC(7, kDebugScript, "%s: Entering new block (blockSize: %d, startingPos: %lld)",
+		__func__, blockSize, static_cast<long long int>(startingPos));
 
 	ScriptValue returnValue;
 	ExpressionType expressionType = static_cast<ExpressionType>(_bytecode->readTypedUint16());
 	while (expressionType != kExpressionTypeEmpty && !_returnImmediately) {
 		returnValue = evaluateExpression(expressionType);
 		expressionType = static_cast<ExpressionType>(_bytecode->readTypedUint16());
+
+		if (expressionType == kExpressionTypeEmpty) {
+			debugC(7, kDebugScript, "%s: Done executing block due to end of chunk", __func__);
+		}
+		if (_returnImmediately) {
+			debugC(7, kDebugScript, "%s: Done executing block due to script requesting immediate return", __func__);
+		}
 	}
 
 	// Verify we consumed the right number of script bytes.
 	if (!_returnImmediately) {
 		uint bytesRead = _bytecode->pos() - startingPos;
 		if (bytesRead != blockSize) {
-			error("Expected to have read %d script bytes, actually read %d", blockSize, bytesRead);
+			error("%s: Expected to have read %d script bytes, actually read %d", __func__, blockSize, bytesRead);
 		}
 	}
 	return returnValue;
@@ -67,6 +76,7 @@ ScriptValue CodeChunk::execute(Common::Array<ScriptValue> *args) {
 	// Rewind the stream once we're finished, in case we need to execute
 	// this code again!
 	_bytecode->seek(0);
+	_returnImmediately = false;
 	_locals.clear();
 	// We don't own the args, so we will prevent a potentially out-of-scope
 	// variable from being re-accessed.
@@ -102,7 +112,7 @@ ScriptValue CodeChunk::evaluateExpression(ExpressionType expressionType) {
 		break;
 
 	default:
-		error("Got unimplemented expression type %s (%d)",
+		error("%s: Got unimplemented expression type %s (%d)", __func__,
 			expressionTypeToStr(expressionType), static_cast<uint>(expressionType));
 	}
 	return returnValue;
@@ -180,7 +190,7 @@ ScriptValue CodeChunk::evaluateOperation() {
 		break;
 
 	default:
-		error("Got unimplemented opcode %s (%d)", opcodeToStr(opcode), static_cast<uint>(opcode));
+		error("%s: Got unimplemented opcode %s (%d)", __func__, opcodeToStr(opcode), static_cast<uint>(opcode));
 	}
 	return returnValue;
 }
@@ -194,7 +204,7 @@ ScriptValue CodeChunk::evaluateValue() {
 	case kOperandTypeBool: {
 		int b = _bytecode->readTypedByte();
 		if (b != 0 && b != 1) {
-			error("Got invalid literal bool value %d", b);
+			error("%s: Got invalid literal bool value %d", __func__, b);
 		}
 		debugC(5, kDebugScript, "%d ", b);
 		returnValue.setToBool(b == 1 ? true : false);
@@ -232,10 +242,10 @@ ScriptValue CodeChunk::evaluateValue() {
 		return returnValue;
 	}
 
-	case kOperandTypeAssetId: {
-		uint assetId = _bytecode->readTypedUint16();
-		debugC(5, kDebugScript, "%d ", assetId);
-		returnValue.setToAssetId(assetId);
+	case kOperandTypeActorId: {
+		uint actorId = _bytecode->readTypedUint16();
+		debugC(5, kDebugScript, "%d ", actorId);
+		returnValue.setToActorId(actorId);
 		return returnValue;
 	}
 
@@ -266,7 +276,7 @@ ScriptValue CodeChunk::evaluateValue() {
 	}
 
 	default:
-		error("Got unknown ScriptValue type %s (%d)", operandTypeToStr(operandType), static_cast<uint>(operandType));
+		error("%s: Got unknown ScriptValue type %s (%d)", __func__, operandTypeToStr(operandType), static_cast<uint>(operandType));
 	}
 }
 
@@ -285,7 +295,7 @@ ScriptValue *CodeChunk::readAndReturnVariable() {
 	case kVariableScopeGlobal: {
 		ScriptValue *variable = g_engine->getVariable(id);
 		if (variable == nullptr) {
-			error("Global variable %d doesn't exist", id);
+			error("%s: Global variable %d doesn't exist", __func__, id);
 		}
 		return variable;
 	}
@@ -304,13 +314,13 @@ ScriptValue *CodeChunk::readAndReturnVariable() {
 	case kVariableScopeParameter: {
 		uint index = id - 1;
 		if (_args == nullptr) {
-			error("Requested a parameter in a code chunk that has no parameters");
+			error("%s: Requested a parameter in a code chunk that has no parameters", __func__);
 		}
 		return &_args->operator[](index);
 	}
 
 	default:
-		error("Got unknown variable scope %s (%d)", variableScopeToStr(scope), static_cast<uint>(scope));
+		error("%s: Got unknown variable scope %s (%d)", __func__, variableScopeToStr(scope), static_cast<uint>(scope));
 	}
 }
 
@@ -318,7 +328,7 @@ void CodeChunk::evaluateIf() {
 	debugCN(5, kDebugScript, "\n    condition: ");
 	ScriptValue condition = evaluateExpression();
 	if (condition.getType() != kScriptValueTypeBool) {
-		error("evaluateIf: Expected bool condition, got %s", scriptValueTypeToStr(condition.getType()));
+		error("%s: Expected bool condition, got %s", __func__, scriptValueTypeToStr(condition.getType()));
 	}
 
 	if (condition.asBool()) {
@@ -332,7 +342,7 @@ void CodeChunk::evaluateIfElse() {
 	debugCN(5, kDebugScript, "\n    condition: ");
 	ScriptValue condition = evaluateExpression();
 	if (condition.getType() != kScriptValueTypeBool) {
-		error("evaluateIfElse: Expected bool condition, got %s", scriptValueTypeToStr(condition.getType()));
+		error("%s: Expected bool condition, got %s", __func__, scriptValueTypeToStr(condition.getType()));
 	}
 
 	if (condition.asBool()) {
@@ -352,14 +362,14 @@ ScriptValue CodeChunk::evaluateAssign() {
 	ScriptValue value = evaluateExpression();
 
 	if (value.getType() == kScriptValueTypeEmpty) {
-		error("Attempt to assign an empty value to a variable");
+		error("%s: Attempt to assign an empty value to a variable", __func__);
 	}
 
 	if (targetVariable != nullptr) {
 		*targetVariable = value;
 		return value;
 	} else {
-		error("Attempt to assign to null variable");
+		error("%s: Attempt to assign to null variable", __func__);
 	}
 }
 
@@ -428,7 +438,7 @@ ScriptValue CodeChunk::evaluateBinaryOperation(Opcode op) {
 		break;
 
 	default:
-		error("Got unknown binary operation opcode %s", opcodeToStr(op));
+		error("%s: Got unknown binary operation opcode %s", __func__, opcodeToStr(op));
 	}
 	return returnValue;
 }
@@ -464,18 +474,7 @@ ScriptValue CodeChunk::evaluateFunctionCall(uint functionId, uint paramCount) {
 		args.push_back(arg);
 	}
 
-	ScriptValue returnValue;
-	Function *function = g_engine->getFunctionById(functionId);
-	if (function != nullptr) {
-		// This is a title-defined function.
-		returnValue = function->execute(args);
-	} else {
-		// This is a function built in (and global to) the engine.
-		BuiltInFunction builtInFunctionId = static_cast<BuiltInFunction>(functionId);
-		debugC(5, kDebugScript, "  Function Name: %s ", builtInFunctionToStr(builtInFunctionId));
-		returnValue = g_engine->callBuiltInFunction(builtInFunctionId, args);
-	}
-
+	ScriptValue returnValue = g_engine->getFunctionManager()->call(functionId, args);
 	return returnValue;
 }
 
@@ -512,28 +511,20 @@ ScriptValue CodeChunk::evaluateMethodCall(BuiltInMethod method, uint paramCount)
 
 	ScriptValue returnValue;
 	switch (target.getType()) {
-	case kScriptValueTypeAssetId: {
-		if (target.asAssetId() == 1) {
-			// This is a "document" method that we need to handle specially.
-			// The document (@doc) accepts engine-level methods like changing the
-			// active screen.
-			// HACK: This is so we don't have to implement a separate document class
-			// just to house these methods. Rather, we just call in the engine.
-			returnValue = g_engine->callMethod(method, args);
-			return returnValue;
-		} else if (target.asAssetId() == 0) {
-			// It seems to be valid to call a method on a null asset ID, in
+	case kScriptValueTypeActorId: {
+		if (target.asActorId() == 0) {
+			// It seems to be valid to call a method on a null actor ID, in
 			// which case nothing happens. Still issue warning for traceability.
-			warning("Attempt to call method on a null asset ID");
+			warning("%s: Attempt to call method on a null actor ID", __func__);
 			return returnValue;
 		} else {
-			// This is a regular asset that we can process directly.
-			uint assetId = target.asAssetId();
-			Asset *targetAsset = g_engine->getAssetById(assetId);
-			if (targetAsset == nullptr) {
-				error("Attempt to call method on asset ID %d, which isn't loaded", target.asAssetId());
+			// This is a regular actor that we can process directly.
+			uint actorId = target.asActorId();
+			Actor *targetActor = g_engine->getActorById(actorId);
+			if (targetActor == nullptr) {
+				error("%s: Attempt to call method on actor ID %d, which isn't loaded", __func__, target.asActorId());
 			}
-			returnValue = targetAsset->callMethod(method, args);
+			returnValue = targetActor->callMethod(method, args);
 			return returnValue;
 		}
 	}

@@ -46,9 +46,13 @@
 
 #include "common/timer.h"
 #include "common/system.h"
-#include "graphics/cursorman.h"
+#include "common/config-manager.h"
+
+#include "audio/softsynth/pcspk.h"
+
 #include "graphics/primitives.h"
 #include "graphics/macgui/macfontmanager.h"
+#include "graphics/macgui/macdialog.h"
 #include "graphics/macgui/macwindowmanager.h"
 #include "graphics/macgui/macwindow.h"
 #include "graphics/macgui/macmenu.h"
@@ -82,6 +86,7 @@ static const Graphics::MacMenuData menuSubItems[] = {
 	{ 0, NULL,			0, 0, false }
 };
 
+static bool consoleWindowCallback(WindowClick click, Common::Event &event, void *gui);
 static bool sceneWindowCallback(WindowClick click, Common::Event &event, void *gui);
 static void menuCommandsCallback(int action, Common::String &text, void *data);
 
@@ -93,6 +98,7 @@ Gui::Gui(WageEngine *engine) {
 	_screen.create(g_system->getWidth(), g_system->getHeight(), Graphics::PixelFormat::createFormatCLUT8());
 
 	_wm = new Graphics::MacWindowManager(Graphics::kWMNoScummVMWallpaper);
+	_wm->_fontMan->loadFonts(Common::Path(engine->getGameFile()));
 	_wm->setScreen(&_screen);
 
 	_menu = _wm->addMenu();
@@ -130,8 +136,12 @@ Gui::Gui(WageEngine *engine) {
 
 	uint maxWidth = _screen.w;
 
-	_consoleWindow = _wm->addTextWindow(font, kColorBlack, kColorWhite, maxWidth, Graphics::kTextAlignLeft, _menu);
+	_consoleWindow = _wm->addTextWindow(font, kColorBlack, kColorWhite, maxWidth, Graphics::kTextAlignLeft, _menu, 4);
+	_consoleWindow->setCallback(consoleWindowCallback, this);
+	_consoleWindow->setBorderColor(kColorWhite);
 	_consoleWindow->setEditable(true);
+
+	_selectedMenuItem = -1;
 
 	loadBorders();
 }
@@ -157,10 +167,29 @@ void Gui::draw() {
 
 		_scene = _engine->_world->_player->_currentScene;
 
-		_sceneWindow->setTitle(_scene->_name);
-		_sceneWindow->setDimensions(*_scene->_designBounds);
+		Common::Rect sceneBounds = *_scene->_designBounds;
+		const Graphics::BorderOffsets &offsets = _sceneWindow->getBorderOffsets();
+
+		int maxTitleWidth = sceneBounds.width() - (kWindowMinWidth - offsets.right);
+		Common::String displayTitle = _scene->_name;
+
+		if (maxTitleWidth > 0) {
+			const Graphics::Font *titleFont = getTitleFont();
+			if (titleFont) {
+				// keep deleting the last character untill the title fits
+				while (displayTitle.size() > 0 && titleFont->getStringWidth(displayTitle) > maxTitleWidth) {
+					displayTitle.deleteLastChar();
+				}
+			}
+		} else {
+			displayTitle.clear();
+		}
+
+		_sceneWindow->setTitle(displayTitle);
+		_sceneWindow->setDimensions(sceneBounds);
 		_consoleWindow->setDimensions(*_scene->_textBounds);
 
+		_wm->setActiveWindow(_consoleWindow->getId());
 		_wm->setFullRefresh(true);
 	}
 
@@ -182,6 +211,21 @@ void Gui::drawScene() {
 	_menu->setDirty(true);
 }
 
+static bool consoleWindowCallback(WindowClick click, Common::Event &event, void *g) {
+	Gui *gui = (Gui *)g;
+
+	return gui->processConsoleEvents(click, event);
+}
+
+bool Gui::processConsoleEvents(WindowClick click, Common::Event &event) {
+	if (click == kBorderCloseButton && event.type == Common::EVENT_LBUTTONUP) {
+		_engine->quitGame();
+		return true;
+	}
+
+	return false;
+}
+
 static bool sceneWindowCallback(WindowClick click, Common::Event &event, void *g) {
 	Gui *gui = (Gui *)g;
 
@@ -196,6 +240,14 @@ bool Gui::processSceneEvents(WindowClick click, Common::Event &event) {
 			_engine->processTurn(NULL, obj);
 
 		return true;
+	}
+	if (click == kBorderCloseButton && event.type == Common::EVENT_LBUTTONUP) {
+		_engine->quitGame();
+		return true;
+	}
+
+	if (event.type == Common::EVENT_KEYDOWN) {
+		return _consoleWindow->processEvent(event);
 	}
 
 	return false;
@@ -252,6 +304,31 @@ bool Gui::processEvent(Common::Event &event) {
 		_menu->enableCommand(kMenuEdit, kMenuActionPaste, true);
 	}
 
+	if (event.type == Common::EVENT_MOUSEMOVE) {
+		bool mouseOnItem = false;
+		for (int i = 0; i < _menu->numberOfMenus(); i++) {
+			Graphics::MacMenuItem *menuItem = _menu->getMenuItem(i);
+
+			if (menuItem->enabled && menuItem->bbox.contains(event.mouse.x, event.mouse.y)) {
+				if (_selectedMenuItem != i) {
+					_engine->sayText(menuItem->text, Common::TextToSpeechManager::INTERRUPT);
+					_selectedMenuItem = i;
+				}
+
+				mouseOnItem = true;
+				break;
+			}
+		}
+
+		if (!mouseOnItem) {
+			_selectedMenuItem = -1;
+		}
+	}
+
+	if (event.type == Common::EVENT_KEYDOWN) {
+		_wm->setActiveWindow(_consoleWindow->getId());
+	}
+
 	return _wm->processEvent(event);
 }
 
@@ -264,7 +341,7 @@ void menuCommandsCallback(int action, Common::String &text, void *data) {
 void Gui::executeMenuCommand(int action, Common::String &text) {
 	switch(action) {
 	case kMenuActionAbout:
-		_engine->aboutDialog();
+		aboutDialog();
 		break;
 
 	case kMenuActionNew:
@@ -279,10 +356,8 @@ void Gui::executeMenuCommand(int action, Common::String &text) {
 		if (_engine->_defaultSaveSlot != -1) {
 			_engine->_isGameOver = false;
 
-			_engine->loadGameState(_engine->_defaultSaveSlot);
 			_engine->_world->_weaponMenuDisabled = false;
-			_engine->_gui->regenCommandsMenu();
-			_engine->_gui->regenWeaponsMenu();
+			_engine->loadGameState(_engine->_defaultSaveSlot);
 
 			_scene = nullptr; 	// To force current scene to be redrawn
 			_engine->redrawScene();
@@ -295,7 +370,7 @@ void Gui::executeMenuCommand(int action, Common::String &text) {
 		break;
 
 	case kMenuActionQuit:
-		_engine->saveDialog();
+		_engine->quitGame();
 		break;
 
 	case kMenuActionSave:
@@ -326,6 +401,8 @@ void Gui::executeMenuCommand(int action, Common::String &text) {
 			_engine->_inputText = text;
 			Common::String inp = text + '\n';
 
+			_engine->sayText(text, Common::TextToSpeechManager::QUEUE);
+
 			appendText(inp.c_str());
 
 			_consoleWindow->clearInput();
@@ -350,6 +427,10 @@ const Graphics::MacFont *Gui::getConsoleMacFont() {
 
 const Graphics::Font *Gui::getConsoleFont() {
 	return _wm->_fontMan->getFont(*getConsoleMacFont());
+}
+
+const Graphics::Font *Gui::getTitleFont() {
+	return _wm->_fontMan->getFont(Graphics::MacFont(Graphics::kMacFontSystem, 12));
 }
 
 void Gui::appendText(const char *s) {
@@ -426,10 +507,168 @@ void Gui::enableNewGameMenus() {
 
 void Gui::enableSave() {
 	_menu->enableCommand(kMenuFile, kMenuActionSave, true);
+	_menu->enableCommand(kMenuFile, kMenuActionSaveAs, true);
 }
 
 void Gui::enableRevert() {
 	_menu->enableCommand(kMenuFile, kMenuActionRevert, true);
+}
+
+class AboutDialog : public Graphics::MacDialog {
+public:
+	AboutDialog(Graphics::ManagedSurface *screen, Graphics::MacWindowManager *wm, int width, Graphics::MacText *mactext, int maxTextWidth, Graphics::MacDialogButtonArray *buttons, uint defaultButton);
+	virtual ~AboutDialog() {
+		if (_volumeChanged)
+			ConfMan.flushToDisk();
+	}
+
+	virtual void paint() override;
+	virtual bool processEvent(const Common::Event &event) override;
+
+private:
+	Common::Rect _volBbox;
+
+	const int kVolWidth = 160;
+	bool _volumeChanged = false;
+};
+
+AboutDialog::AboutDialog(Graphics::ManagedSurface *screen, Graphics::MacWindowManager *wm, int width, Graphics::MacText *mactext, int maxTextWidth, Graphics::MacDialogButtonArray *buttons, uint defaultButton)
+		: Graphics::MacDialog(screen, wm, width, mactext, maxTextWidth, buttons, defaultButton) {
+	_volBbox = Common::Rect(0, 0, kVolWidth, 12);
+	_volBbox.moveTo(_bbox.left + (_bbox.width() - kVolWidth) / 2, _bbox.bottom - 32);
+}
+
+
+void AboutDialog::paint() {
+	Graphics::MacDialog::paint();
+
+	const char *volumeText = "-     Volume     +";
+	int w = _font->getStringWidth(volumeText);
+	int x = _bbox.left + (_bbox.width() - w) / 2;
+	int y = _bbox.bottom - 52;
+
+	_font->drawString(_screen, volumeText, x, y, _bbox.width(), kColorBlack);
+
+	uint32 volume = ConfMan.getInt("sfx_volume");
+
+	Graphics::Primitives &primitives = _wm->getDrawPrimitives();
+
+	Common::Rect volBox(0, 0, volume * kVolWidth / 256, 12);
+	volBox.moveTo(_bbox.left + (_bbox.width() - kVolWidth) / 2, _bbox.bottom - 32);
+
+	Graphics::MacPlotData pd(_screen, nullptr, &_wm->getPatterns(), 1, 0, 0, 1, _wm->_colorBlack, false);
+	primitives.drawFilledRect1(volBox, kColorBlack, &pd);
+	primitives.drawRect1(_volBbox, kColorBlack, &pd);
+}
+
+bool AboutDialog::processEvent(const Common::Event &event) {
+	if (event.type == Common::EVENT_LBUTTONUP) {
+		if (_volBbox.contains(event.mouse.x, event.mouse.y)) {
+			int delta = event.mouse.x - _volBbox.left;
+
+			int volume = delta * 256 / kVolWidth;
+			ConfMan.setInt("sfx_volume", volume);
+			_volumeChanged = true;
+
+			_needsRedraw = true;
+
+			g_wage->syncSoundSettings();
+
+			g_wage->_speaker->play(Audio::PCSpeaker::kWaveFormSquare, 500, 150);
+
+			return true;
+		}
+	}
+
+	return false;
+}
+
+void Gui::aboutDialog() {
+	Common::U32String messageText(_engine->_world->_aboutMessage, Common::kMacRoman);
+	Common::U32String disclaimer("\n\n\n\nThis adventure was produced with World Builder\xAA\nthe adventure game creation system.\n\xA9 Copyright 1986 by William C. Appleton, All Right Reserved\nPublished by Silicon Beach Software, Inc.", Common::kMacRoman);
+
+	_engine->sayText(_engine->_world->_aboutMessage);
+	_engine->sayText(disclaimer, Common::TextToSpeechManager::QUEUE);
+	messageText += disclaimer;
+
+	Graphics::MacFont font(Graphics::kMacFontGeneva, 9, 0);
+	Graphics::MacText aboutMessage(messageText, _wm, &font, Graphics::kColorBlack,
+											 Graphics::kColorWhite, 400, Graphics::kTextAlignCenter);
+
+	Graphics::MacDialogButtonArray buttons;
+
+	buttons.push_back(new Graphics::MacDialogButton("OK", 191, aboutMessage.getTextHeight() + 30, 68, 28));
+	// add a dummy button to push volume slider position down
+	// to avoid the overlapping of volume slider with OK button in the about section
+	buttons.push_back(new Graphics::MacDialogButton("", 0, aboutMessage.getTextHeight() + 100, 0, 0));
+
+	AboutDialog about(&_screen, _wm, 450, &aboutMessage, 400, &buttons, 0);
+
+	delete buttons.back();
+	buttons.pop_back();
+	// close the menu before calling run because it blocks execution
+	if (_menu)
+		_menu->closeMenu();
+
+	int button = about.run();
+
+	if (button == Graphics::kMacDialogQuitRequested)
+		_engine->_shouldQuit = true;
+}
+
+void Gui::gameOver() {
+	Graphics::MacDialogButtonArray buttons;
+
+	buttons.push_back(new Graphics::MacDialogButton("OK", 66, 67, 68, 28));
+
+	Graphics::MacFont font;
+
+	Graphics::MacText gameOverMessage(*_engine->_world->_gameOverMessage, _wm, &font, Graphics::kColorBlack,
+									  Graphics::kColorWhite, 199, Graphics::kTextAlignCenter);
+
+	_engine->sayText(*_engine->_world->_gameOverMessage, Common::TextToSpeechManager::QUEUE);
+
+	Graphics::MacDialog gameOverDialog(&_screen, _wm,  199, &gameOverMessage, 199, &buttons, 0);
+
+	int button = gameOverDialog.run();
+
+	if (button == Graphics::kMacDialogQuitRequested)
+		_engine->_shouldQuit = true;
+
+	_engine->doClose();
+
+	disableAllMenus();
+	enableNewGameMenus();
+}
+
+bool Gui::saveDialog() {
+	Graphics::MacDialogButtonArray buttons;
+
+	buttons.push_back(new Graphics::MacDialogButton("No", 19, 67, 68, 28));
+	buttons.push_back(new Graphics::MacDialogButton("Yes", 112, 67, 68, 28));
+	buttons.push_back(new Graphics::MacDialogButton("Cancel", 205, 67, 68, 28));
+
+	Graphics::MacFont font;
+
+	Graphics::MacText saveBeforeCloseMessage(*_engine->_world->_saveBeforeCloseMessage, _wm, &font, Graphics::kColorBlack,
+									  Graphics::kColorWhite, 250, Graphics::kTextAlignCenter);
+
+	_engine->sayText(*_engine->_world->_saveBeforeCloseMessage);
+
+	Graphics::MacDialog save(&_screen, _wm, 291, &saveBeforeCloseMessage, 250, &buttons, 1);
+
+	int button = save.run();
+
+	if (button == Graphics::kMacDialogQuitRequested)
+		_engine->_shouldQuit = true;
+	else if (button == 2) // Cancel
+		return false;
+	else if (button == 1)
+		_engine->saveGame();
+
+	_engine->doClose();
+
+	return true;
 }
 
 } // End of namespace Wage

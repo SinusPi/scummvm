@@ -274,6 +274,9 @@ bool TwpEngine::preWalk(Common::SharedPtr<Object> actor, VerbId verbId, Common::
 			debugC(kDebugGame, "%s %d n1=%s(%s) n2=%s -> %s", funcName.c_str(), verbId.id, noun1->_name.c_str(), noun1->_key.c_str(), n2Name.c_str(), result ? "yes" : "no");
 		}
 	}
+	if (!result) {
+		sqcallfunc(result, "actorPreWalk", verbId.id, noun1->_table, n2Table);
+	}
 	return result;
 }
 
@@ -1013,10 +1016,14 @@ Common::Error TwpEngine::run() {
 	AchMan.setActiveDomain(getMetaEngine()->getAchievementsInfo(gameTarget));
 
 	if (!g_system->hasFeature(OSystem::kFeatureShadersForGame)) {
-		return Common::Error(Common::kUnknownError, "Thimbleweed Park requires OpenGL with shaders which is not supported on your system");
+		return Common::Error(Common::kUnknownError, _s("This game requires OpenGL with shaders, which is not supported on your system"));
 	}
 
 	initGraphics3d(SCREEN_WIDTH, SCREEN_HEIGHT);
+
+	if (!OpenGLContext.framebufferObjectSupported) {
+		return Common::Error(Common::kUnknownError, _s("This game requires OpenGL Framebuffer Objects, which are not supported on your system"));
+	}
 
 	// Set the engine's debugger console
 	setDebugger(new Console());
@@ -2112,7 +2119,7 @@ void TwpEngine::capture(Graphics::Surface &surface, int width, int height) {
 	rt.capture(data);
 
 	// flip it (due to opengl) and scale it to the desired size
-	Graphics::PixelFormat fmt(4, 8, 8, 8, 8, 0, 8, 16, 24);
+	const Graphics::PixelFormat fmt = Graphics::PixelFormat::createFormatRGBA32();
 	Graphics::Surface s;
 	s.init(SCREEN_WIDTH, SCREEN_HEIGHT, 4 * SCREEN_WIDTH, data.data(), fmt);
 	s.flipVertical(Common::Rect(s.w, s.h));

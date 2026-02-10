@@ -500,7 +500,7 @@ void ScummEngine_v6::o6_pushByteVar() {
 
 void ScummEngine_v6::o6_pushWordVar() {
 // BACKYARD BASEBALL 2001 ONLINE CHANGES
-#if defined(USE_ENET) && defined(USE_LIBCURL)
+#if defined(USE_ENET) && defined(USE_BASIC_NET)
 	if (_enableHECompetitiveOnlineMods) {
 		// Sprinting in competitive Backyard Baseball is considered too weak in its current state. This will increase how effective
 		// it is, limiting the highest speed characters enough to where they cannot go TOO fast.
@@ -585,7 +585,7 @@ void ScummEngine_v6::o6_byteArrayRead() {
 void ScummEngine_v6::o6_wordArrayRead() {
 	int base = pop();
 	int array = fetchScriptWord();
-#if defined(USE_ENET) && defined(USE_LIBCURL)
+#if defined(USE_ENET) && defined(USE_BASIC_NET)
 	if (_enableHECompetitiveOnlineMods) {
 		// If we're pulling from the randomly selected teams for online play
 		// at Prince Rupert, read from variables 748 and 749 instead
@@ -635,7 +635,7 @@ void ScummEngine_v6::o6_eq() {
 	int b = pop();
 
 // BACKYARD BASEBALL 2001 ONLINE CHANGES
-#if defined(USE_ENET) && defined(USE_LIBCURL)
+#if defined(USE_ENET) && defined(USE_BASIC_NET)
 	// The player stat adjustments that should get applied in certain conditions (i.e. when two siblings are on the same team)
 	// don't get applied properly for the away (peer) team in online play. This results in each team's game using a different
 	// version of players' stats, leading to unfair play and potential desyncs. This hack ensures the away team's game doesn't
@@ -752,7 +752,7 @@ void ScummEngine_v6::o6_eq() {
 	}
 #endif
 
-#if defined(USE_ENET) && defined(USE_LIBCURL)
+#if defined(USE_ENET) && defined(USE_BASIC_NET)
 	int offset = _scriptPointer - _scriptOrgPointer;
 	// WORKAROUND: In Backyard Baseball 2001, The special rules of the Mountain Aire and Wilderness neighborhoods
 	// are incorrect.  They were set to "3 innings" and "no swing spot" respectively, while they were supposed to be set to
@@ -856,7 +856,7 @@ void ScummEngine_v6::o6_le() {
 void ScummEngine_v6::o6_ge() {
 	int a = pop();
 	int b = pop();
-#if defined(USE_ENET) && defined(USE_LIBCURL)
+#if defined(USE_ENET) && defined(USE_BASIC_NET)
 	// Mod for Backyard Baseball 2001 online competitive play: Reduce sprints
 	// required to reach top speed
 	if (_enableHECompetitiveOnlineMods && _game.id == GID_BASEBALL2001 &&
@@ -887,7 +887,7 @@ void ScummEngine_v6::o6_div() {
 	if (a == 0)
 		error("division by zero");
 	int b = pop();
-#if defined(USE_ENET) && defined(USE_LIBCURL)
+#if defined(USE_ENET) && defined(USE_BASIC_NET)
 	// Mod for Backyard Baseball 2001 online competitive play: Allow full sprinting while
 	// running half-speed on a popup
 	if (_enableHECompetitiveOnlineMods && _game.id == GID_BASEBALL2001 && _currentRoom == 3 &&
@@ -1144,7 +1144,7 @@ void ScummEngine_v6::o6_startScriptQuick2() {
 	int script;
 	getStackList(args, ARRAYSIZE(args));
 	script = pop();
-#if defined(USE_ENET) && defined(USE_LIBCURL)
+#if defined(USE_ENET) && defined(USE_BASIC_NET)
 	// Mod for Backyard Baseball 2001 online competitive play: change effect of
 	// pitch location on hit quality
 	if (_enableHECompetitiveOnlineMods && _game.id == GID_BASEBALL2001 && _currentRoom == 4 && script == 2085 && readVar(399) == 1) {
@@ -1623,28 +1623,7 @@ void ScummEngine_v6::o6_animateActor() {
 	int anim = pop();
 	int act = pop();
 
-	if (_game.id == GID_SAMNMAX && _roomResource == 35 && currentScriptSlotIs(202) &&
-		act == 4 && anim == 14 && enhancementEnabled(kEnhMinorBugFixes)) {
-		// WORKAROUND bug #2068 (Animation glitch at World of Fish).
-		// Before starting animation 14 of the fisherman, make sure he isn't
-		// talking anymore, otherwise the fishing line may appear twice when Max
-		// grabs it and subtitles (at a slow speed) and voices are both enabled.
-		// This bug exists in the original game as well.
-		if (getTalkingActor() == 4) {
-			stopTalk();
-		}
-	}
-
-	if (_game.id == GID_SAMNMAX && _roomResource == 47 && currentScriptSlotIs(202) &&
-		act == 2 && anim == 249 && enhancementEnabled(kEnhMinorBugFixes)) {
-		// WORKAROUND for bug #3832: parts of Bruno are left on the screen when he
-		// escapes Bumpusville with Trixie. Bruno (act. 11) and Trixie (act. 12) are
-		// properly removed from the scene by the script, but not the combined actor
-		// which is used by this animation (act. 6).
-		Actor *a = derefActorSafe(6, "o6_animateActor");
-		if (a && a->_costume == 243)
-			a->putActor(0, 0, 0);
-	}
+	o6_animateActorApplyEnhancements(act, anim);
 
 	// Since there have been cases of the scripts sending garbage data
 	// as the actor number (see bug #813), we handle these cases cleanly
@@ -1736,7 +1715,7 @@ void ScummEngine_v6::o6_getRandomNumberRange() {
 	int min = pop();
 	int rnd = _rnd.getRandomNumber(0x7fff);
 	rnd = min + (rnd % (max - min + 1));
-#if defined(USE_ENET) && defined(USE_LIBCURL)
+#if defined(USE_ENET) && defined(USE_BASIC_NET)
 	if (_enableHECompetitiveOnlineMods) {
 		// For using predefined teams in Prince Rupert, instead of choosing player IDs randomly
 		// let's pull from the variables that contain the teams
@@ -1930,7 +1909,7 @@ void ScummEngine_v6::o6_beginOverride() {
 	}
 
 	beginOverride();
-	_skipVideo = 0;
+	_skipVideo = false;
 }
 
 void ScummEngine_v6::o6_endOverride() {
@@ -2228,6 +2207,7 @@ void ScummEngine_v6::o6_actorOps() {
 	switch (subOp) {
 	case SO_COSTUME:
 		i = pop();
+
 		// WORKAROUND: There's a small continuity error in DOTT; the fire that
 		// makes Washington leave the room can only exist if he's wearing the
 		// chattering teeth, but yet when he comes back he's not wearing them
@@ -2236,6 +2216,26 @@ void ScummEngine_v6::o6_actorOps() {
 			a->_number == 8 && i == 53 && enhancementEnabled(kEnhVisualChanges)) {
 			i = 69;
 		}
+
+		// WORKAROUND bug #16258: In DOTT, if one skips the cutscene after
+		// Washington has opened the suggestion box but before he closes it
+		// again, the box stays open. But this is clearly unintended, as the
+		// box is then in an inconsistent state (Hoagie will say it's still
+		// closed, and in the Remaster it's also glitched). So, make sure
+		// it's always closed at the end of this cutscene.
+		if (_game.id == GID_TENTACLE && _currentRoom == 13 && currentScriptSlotIs(22) &&
+			a->_number == 8 && enhancementEnabled(kEnhMinorBugFixes)) {
+			const bool vacuumSuggestionIsDone = (getState(540) == 1);
+			const bool suggestionBoxNotClosedYet = (whereIsObject(81) == WIO_ROOM && getState(81) == 1);
+			if (VAR(VAR_OVERRIDE) && vacuumSuggestionIsDone && suggestionBoxNotClosedYet) {
+				// Simulate the full o6_setState() call that closes it
+				putState(81, 0);
+				markObjectRectAsDirty(81);
+				if (_bgNeedsRedraw)
+					clearDrawObjectQueue();
+			}
+		}
+
 		a->setActorCostume(i);
 		break;
 	case SO_STEP_DIST:
@@ -3723,6 +3723,44 @@ void ScummEngine_v6::decodeParseString(int m, int n) {
 		break;
 	default:
 		error("decodeParseString: default case 0x%x", b);
+	}
+}
+
+#pragma mark -
+#pragma mark --- Enhancements & workarounds ---
+#pragma mark -
+
+void ScummEngine_v6::o6_animateActorApplyEnhancements(int &act, int &anim) {
+	// WORKAROUND bug #15947: In the Human Show, with Laverne, the smiling
+	// contestant has an unused animation where she's winking. At this is
+	// mentioned by the judges ("She winked at me"), it makes sense to
+	// restore it.
+	if (_game.id == GID_TENTACLE && _roomResource == 54 && currentScriptSlotIs(80) &&
+		act == 5 && anim == 13 && enhancementEnabled(kEnhRestoredContent)) {
+		if (_rnd.getRandomBit())
+			anim = 14;
+	}
+
+	// WORKAROUND bug #2068 (Animation glitch at World of Fish).
+	// Before starting animation 14 of the fisherman, make sure he isn't
+	// talking anymore, otherwise the fishing line may appear twice when Max
+	// grabs it and subtitles (at a slow speed) and voices are both enabled.
+	// This bug exists in the original game as well.
+	if (_game.id == GID_SAMNMAX && _roomResource == 35 && currentScriptSlotIs(202) &&
+		act == 4 && anim == 14 && enhancementEnabled(kEnhMinorBugFixes)) {
+		if (getTalkingActor() == 4)
+			stopTalk();
+	}
+
+	// WORKAROUND for bug #3832: parts of Bruno are left on the screen when he
+	// escapes Bumpusville with Trixie. Bruno (act. 11) and Trixie (act. 12) are
+	// properly removed from the scene by the script, but not the combined actor
+	// which is used by this animation (act. 6).
+	if (_game.id == GID_SAMNMAX && _roomResource == 47 && currentScriptSlotIs(202) &&
+		act == 2 && anim == 249 && enhancementEnabled(kEnhMinorBugFixes)) {
+		Actor *a = derefActorSafe(6, "o6_animateActor");
+		if (a && a->_costume == 243)
+			a->putActor(0, 0, 0);
 	}
 }
 

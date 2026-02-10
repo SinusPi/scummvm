@@ -43,6 +43,8 @@
 #include "backends/platform/android/jni-android.h"
 #include "backends/platform/android/asset-archive.h"
 
+#include "backends/networking/basic/android/jni.h"
+
 #include "base/main.h"
 #include "base/version.h"
 #include "common/config-manager.h"
@@ -81,6 +83,7 @@ int JNI::egl_bits_per_pixel = 0;
 bool JNI::_ready_for_events = 0;
 bool JNI::virt_keyboard_state = false;
 int32 JNI::gestures_insets[4] = { 0, 0, 0, 0 };
+int32 JNI::cutout_insets[4] = { 0, 0, 0, 0 };
 
 jmethodID JNI::_MID_getDPI = 0;
 jmethodID JNI::_MID_displayMessageOnOSD = 0;
@@ -814,9 +817,16 @@ void JNI::create(JNIEnv *env, jobject self, jobject asset_manager,
 
 	assets_updated = assets_updated_;
 
+	// Initialize network bindings here in a Java thread
+	// If net called gets called for the first time in a timer thread,
+	// the class loader is lost and can't find our classes.
+	Networking::NetJNI::init(env);
+
 	pause = false;
 	// initial value of zero!
 	sem_init(&pause_sem, 0, 0);
+
+	virt_keyboard_state = false;
 
 	_asset_archive = new AndroidAssetArchive(asset_manager);
 	assert(_asset_archive);
@@ -980,8 +990,8 @@ void JNI::setPause(JNIEnv *env, jobject self, jboolean value) {
 void JNI::systemInsetsUpdated(JNIEnv *env, jobject self, jintArray gestureInsets, jintArray systemInsets, jintArray cutoutInsets) {
 	assert(env->GetArrayLength(gestureInsets) == ARRAYSIZE(gestures_insets));
 
-	// TODO: handle systemInsets and cutoutInsets
 	env->GetIntArrayRegion(gestureInsets, 0, ARRAYSIZE(gestures_insets), gestures_insets);
+	env->GetIntArrayRegion(cutoutInsets, 0, ARRAYSIZE(cutout_insets), cutout_insets);
 }
 
 jstring JNI::getNativeVersionInfo(JNIEnv *env, jobject self) {
@@ -1073,6 +1083,9 @@ jobject JNI::getNewSAFTree(bool writable, const Common::String &initURI,
 	jobject tree = env->CallObjectMethod(_jobj, _MID_getNewSAFTree,
 	                                     writable, javaInitURI, javaPrompt);
 
+	env->DeleteLocalRef(javaInitURI);
+	env->DeleteLocalRef(javaPrompt);
+
 	if (env->ExceptionCheck()) {
 		LOGE("getNewSAFTree: error");
 
@@ -1081,9 +1094,6 @@ jobject JNI::getNewSAFTree(bool writable, const Common::String &initURI,
 
 		return nullptr;
 	}
-
-	env->DeleteLocalRef(javaInitURI);
-	env->DeleteLocalRef(javaPrompt);
 
 	return tree;
 }

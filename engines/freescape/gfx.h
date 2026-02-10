@@ -43,6 +43,9 @@ typedef Common::HashMap<int, int> ColorReMap;
 class Renderer;
 
 const Graphics::PixelFormat getRGBAPixelFormat();
+byte getCPCPixelMode1(byte cpc_byte, int index);
+byte getCPCPixelMode0(byte cpc_byte, int index);
+byte getCPCPixel(byte cpc_byte, int index, bool mode1);
 
 class Texture {
 public:
@@ -62,8 +65,6 @@ public:
 	Renderer(int screenW, int screenH, Common::RenderMode renderMode, bool authenticGraphics);
 	virtual ~Renderer();
 
-	Graphics::PixelFormat _currentPixelFormat;
-	Graphics::PixelFormat _palettePixelFormat;
 	Graphics::PixelFormat _texturePixelFormat;
 	bool _isAccelerated;
 	bool _authenticGraphics;
@@ -104,6 +105,7 @@ public:
 
 	void drawEclipse(uint8 color1, uint8 color2, float difference);
 	virtual void drawSkybox(Texture *texture, Math::Vector3d camera) {};
+	virtual void drawThunder(Texture *texture, Math::Vector3d camera, float size) {};
 	virtual void drawCelestialBody(Math::Vector3d position, float radius, uint8 color) {};
 
 	Common::Rect viewport() const;
@@ -194,6 +196,28 @@ public:
 		{ 0.4f, 2.0f }, //4
 	};
 
+	float _skyUvs672[16][2] = {
+		{ 0.0f, 0.0f }, //1
+		{ 0.0f, 2.0f }, //2
+		{ 0.6f, 2.0f }, //3
+		{ 0.6f, 0.0f }, //front //4
+
+		{ 0.0f, 2.0f }, //back //1
+		{ 0.6f, 2.0f }, //2
+		{ 0.6f, 0.0f }, //3
+		{ 0.0f, 0.0f }, //4
+
+		{ 0.0f, 0.0f }, //left //1
+		{ 0.6f, 0.0f }, //2
+		{ 0.6f, 2.0f }, //3
+		{ 0.0f, 2.0f }, //4
+
+		{ 0.6f, 0.0f }, //right //1
+		{ 0.0f, 0.0f }, //2
+		{ 0.0f, 2.0f }, //3
+		{ 0.6f, 2.0f }, //4
+	};
+
 	float _skyUvs128[16][2] = {
 		{ 0.0f, 0.0f }, //1
 		{ 0.0f, 2.0f }, //2
@@ -267,6 +291,16 @@ public:
 	byte _stipples[16][128];
 
 	int _scale;
+
+	// debug flags
+	bool _debugRenderBoundingBoxes;
+	int _debugBoundingBoxFilterID;
+	bool _debugRenderWireframe;
+	bool _debugRenderNormals;
+	int _debugHighlightObjectID;
+
+	// for drawing bounding boxes
+	virtual void drawAABB(const Math::AABB &aabb, uint8 r, uint8 g, uint8 b) {}
 
 	/**
 	 * Select the window where to render

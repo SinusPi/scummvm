@@ -51,6 +51,7 @@ class RandomSource;
 namespace Freescape {
 
 class Renderer;
+class Debugger;
 
 #define FREESCAPE_DATA_BUNDLE "freescape.dat"
 
@@ -72,6 +73,7 @@ enum FreescapeAction {
 	kActionMoveLeft,
 	kActionMoveRight,
 	kActionShoot,
+	kActionActivate,
 	kActionIncreaseAngle,
 	kActionDecreaseAngle,
 	kActionChangeStepSize,
@@ -105,6 +107,9 @@ enum FreescapeAction {
 	kActionSelectPrince,
 	kActionSelectPrincess,
 	kActionQuit,
+	// Demo actions
+	kActionUnknownKey,
+	kActionWait
 };
 
 typedef Common::HashMap<uint16, Area *> AreaMap;
@@ -137,6 +142,8 @@ struct CGAPaletteEntry {
 };
 
 extern Common::String shiftStr(const Common::String &str, int shift);
+extern Common::String centerAndPadString(const Common::String &str, int size);
+extern Graphics::ManagedSurface *readCPCImage(Common::SeekableReadStream *file, bool mode1);
 
 class EventManagerWrapper {
 public:
@@ -147,6 +154,8 @@ public:
 	void purgeMouseEvents();
 	void pushEvent(Common::Event &event);
 	void clearExitEvents();
+	bool isActionActive(const Common::CustomEventType &action);
+	bool isKeyPressed();
 
 private:
 	// for continuous events (keyDown)
@@ -188,6 +197,7 @@ public:
 	bool isCPC() { return _gameDescription->platform == Common::kPlatformAmstradCPC; }
 	bool isC64() { return _gameDescription->platform == Common::kPlatformC64; }
 
+	virtual void beforeStarting();
 	Common::Error run() override;
 
 	// UI
@@ -259,7 +269,7 @@ public:
 	Graphics::Surface *loadBundledImage(const Common::String &name, bool appendRenderMode = true);
 	byte *getPaletteFromNeoImage(Common::SeekableReadStream *stream, int offset);
 	Graphics::ManagedSurface *loadAndConvertNeoImage(Common::SeekableReadStream *stream, int offset, byte *palette = nullptr);
-	Graphics::ManagedSurface *loadAndCenterScrImage(Common::SeekableReadStream *stream);
+	Graphics::ManagedSurface *loadAndConvertScrImage(Common::SeekableReadStream *stream);
 	Graphics::ManagedSurface *loadAndConvertDoodleImage(Common::SeekableReadStream *bitmap, Common::SeekableReadStream *color1, Common::SeekableReadStream *color2, byte *palette);
 
 	void loadPalettes(Common::SeekableReadStream *file, int offset);
@@ -330,16 +340,29 @@ public:
 	bool _shootMode;
 	bool _noClipMode;
 	bool _invertY;
+
+	bool _smoothMovement;
+	// Player movement state
+	bool _moveForward;
+	bool _moveBackward;
+	bool _strafeLeft;
+	bool _strafeRight;
+	bool _moveUp;
+	bool _moveDown;
+
 	virtual void initKeymaps(Common::Keymap *engineKeyMap, Common::Keymap *infoScreenKeyMap, const char *target);
 	EventManagerWrapper *_eventManager;
 	void processInput();
 	void resetInput();
+	void stopMovement();
 	void generateDemoInput();
 	virtual void pressedKey(const int keycode);
 	virtual void releasedKey(const int keycode);
 	Common::Point getNormalizedPosition(Common::Point position);
 	virtual bool onScreenControls(Common::Point mouse);
-	void move(CameraMovement direction, uint8 scale, float deltaTime);
+	void updatePlayerMovement(float deltaTime);
+	void updatePlayerMovementSmooth(float deltaTime);
+	void updatePlayerMovementClassic(float deltaTime);
 	void resolveCollisions(Math::Vector3d newPosition);
 	virtual void checkIfStillInArea();
 	void changePlayerHeight(int index);
@@ -354,6 +377,10 @@ public:
 	bool tryStepUp(Math::Vector3d currentPosition);
 	bool tryStepDown(Math::Vector3d currentPosition);
 	bool _hasFallen;
+	bool _isCollidingWithWall;
+	bool _isSteppingUp;
+	bool _isSteppingDown;
+	bool _isFalling;
 	int _maxFallingDistance;
 	int _maxShield;
 	int _maxEnergy;
@@ -416,7 +443,7 @@ public:
 	bool checkConditional(FCLInstruction &instruction, bool shot, bool collided, bool timer, bool activated);
 	bool checkIfGreaterOrEqual(FCLInstruction &instruction);
 	bool checkIfLessOrEqual(FCLInstruction &instruction);
-	void executeExecute(FCLInstruction &instruction, bool shot, bool collided, bool activated);
+	void executeExecute(FCLInstruction &instruction);
 	void executeIncrementVariable(FCLInstruction &instruction);
 	void executeDecrementVariable(FCLInstruction &instruction);
 	void executeSetVariable(FCLInstruction &instruction);
@@ -443,15 +470,16 @@ public:
 	// Sound
 	Audio::SoundHandle _soundFxHandle;
 	Audio::SoundHandle _musicHandle;
+	Audio::SoundHandle _movementSoundHandle;
 	Freescape::SizedPCSpeaker *_speaker;
 
 	bool _syncSound;
 	bool _firstSound;
 	bool _usePrerecordedSounds;
 	void waitForSounds();
-	void stopAllSounds();
+	void stopAllSounds(Audio::SoundHandle &handle);
 	bool isPlayingSound();
-	void playSound(int index, bool sync);
+	void playSound(int index, bool sync, Audio::SoundHandle &handle);
 	void playWav(const Common::Path &filename);
 	void playMusic(const Common::Path &filename);
 	void queueSoundConst(double hzFreq, int duration);
@@ -459,21 +487,30 @@ public:
 	void playSoundConst(double hzFreq, int duration, bool sync);
 	void playSoundSweepIncWL(double hzFreq1, double hzFreq2, double wlStepPerMS, int resolution, bool sync);
 	uint16 playSoundDOSSpeaker(uint16 startFrequency, soundSpeakerFx *speakerFxInfo);
-	void playSoundDOS(soundSpeakerFx *speakerFxInfo, bool sync);
+	void playSoundDOS(soundSpeakerFx *speakerFxInfo, bool sync, Audio::SoundHandle &handle);
 
+	void playSoundDrillerZX(int index, Audio::SoundHandle &handle);
+	void playSoundCPC(int index, Audio::SoundHandle &handle);
 	virtual void playSoundFx(int index, bool sync);
 	virtual void loadSoundsFx(Common::SeekableReadStream *file, int offset, int number);
 	Common::HashMap<uint16, soundFx *> _soundsFx;
-	void loadSpeakerFxDOS(Common::SeekableReadStream *file, int offsetFreq, int offsetDuration);
+	void loadSpeakerFxDOS(Common::SeekableReadStream *file, int offsetFreq, int offsetDuration, int numberSounds);
 	void loadSpeakerFxZX(Common::SeekableReadStream *file, int sfxTable, int sfxData);
 	Common::HashMap<uint16, soundSpeakerFx *> _soundsSpeakerFx;
 
-	void playSoundZX(Common::Array<soundUnitZX> *data);
+	void playSoundZX(Common::Array<soundUnitZX> *data, Audio::SoundHandle &handle);
 	Common::HashMap<uint16, Common::Array<soundUnitZX>*> _soundsSpeakerFxZX;
+
+	void loadSoundsCPC(Common::SeekableReadStream *file, int offsetTone, int sizeTone, int offsetEnvelope, int sizeEnvelope, int offsetSoundDef, int sizeSoundDef);
+	Common::Array<byte> _soundsCPCToneTable;
+	Common::Array<byte> _soundsCPCEnvelopeTable;
+	Common::Array<byte> _soundsCPCSoundDefTable;
+
 	int _soundIndexShoot;
 	int _soundIndexCollide;
+	int _soundIndexStepDown;
+	int _soundIndexStepUp;
 	int _soundIndexFall;
-	int _soundIndexClimb;
 	int _soundIndexMenu;
 	int _soundIndexStart;
 	int _soundIndexAreaChange;
@@ -619,6 +656,7 @@ enum GameReleaseFlags {
 };
 
 extern FreescapeEngine *g_freescape;
+extern Debugger *g_debugger;
 
 } // namespace Freescape
 

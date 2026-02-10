@@ -35,6 +35,7 @@
 #include "common/rendermode.h"
 #include "common/str.h"
 #include "common/textconsole.h"
+#include "common/text-to-speech.h"
 #include "graphics/surface.h"
 #include "graphics/sjis.h"
 #include "graphics/palette.h"
@@ -322,6 +323,9 @@ class ResourceManager;
 #define PIT_V7_SUBTIMER_INC            3977.0
 #define PIT_V7_SUBTIMER_THRESH         4971.0
 
+#define PIT_HE_PUTT_PUTT_DIVISOR       9362.0
+#define PIT_HE_FATTY_BEAR_DIVISOR      21845.0
+
 #define LOOM_STEAM_CDDA_RATE           240.0
 
 /**
@@ -476,6 +480,9 @@ struct InternalGUIControl {
 	int highlightedFillColor;
 	bool centerText;
 	Common::String label;
+#ifdef USE_TTS
+	Common::String alternateTTSLabel;
+#endif
 	bool doubleLinesFlag;
 };
 
@@ -796,8 +803,9 @@ protected:
 	void drawDraftsInventory();
 
 public:
-	char displayMessage(const char *altButton, MSVC_PRINTF const char *message, ...) GCC_PRINTF(3, 4);
+	char displayMessage(MSVC_PRINTF const char *message, ...) GCC_PRINTF(2, 3);
 	bool displayMessageYesNo(MSVC_PRINTF const char *message, ...) GCC_PRINTF(2, 3);
+	bool displayMessageOKQuit(MSVC_PRINTF const char *message, ...) GCC_PRINTF(2, 3);
 
 protected:
 	byte _fastMode = 0;
@@ -847,7 +855,7 @@ protected:
 	int _numPalettes = 0;
 	int _numSprites = 0;
 	int _numTalkies = 0;
-	int _numUnk = 0;
+	int _numWindows = 0;
 	int _HEHeapSize = 0;
 
 public:
@@ -1219,7 +1227,7 @@ protected:
 
 	void verbMouseOver(int verb);
 	int findVerbAtPos(int x, int y) const;
-	virtual void drawVerb(int verb, int mode);
+	virtual void drawVerb(int verb, int mode, Common::TextToSpeechManager::Action ttsAction = Common::TextToSpeechManager::INTERRUPT);
 	virtual void runInputScript(int clickArea, int val, int mode);
 	void restoreVerbBG(int verb);
 	void drawVerbBitmap(int verb, int x, int y);
@@ -1340,6 +1348,7 @@ protected:
 	void initCycl(const byte *ptr);	// Color cycle
 
 	void decodeNESBaseTiles();
+	void playNESTitleScreens();
 
 	void drawObject(int obj, int scrollType);
 	void drawRoomObjects(int arg);
@@ -1366,7 +1375,7 @@ protected:
 	const byte *getPalettePtr(int palindex, int room);
 
 	void setPaletteFromTable(const byte *ptr, int numcolor, int firstIndex = 0);
-	void resetPalette();
+	void resetPalette(bool isBootUp = false);
 
 	void setCurrentPalette(int pal);
 	void setRoomPalette(int pal, int room);
@@ -1627,6 +1636,16 @@ protected:
 
 	Localizer *_localizer = nullptr;
 
+#ifdef USE_TTS
+	bool _voiceNextString = false;
+	bool _checkPreviousSaid = false;
+	bool _voicePassHelpButtons = false;
+	int _previousVerb = -1;
+	int _previousControl = -1;
+	Common::String _previousSaid;
+	Common::String _passHelpButtons[6];
+#endif
+
 	void restoreCharsetBg();
 	void clearCharsetMask();
 	void clearTextSurface();
@@ -1640,11 +1659,17 @@ protected:
 	virtual void displayDialog();
 	int countNumberOfWaits(); // For SE speech support, from disasm
 	bool newLine();
-	void drawString(int a, const byte *msg);
+	void drawString(int a, const byte *msg, Common::TextToSpeechManager::Action ttsAction = Common::TextToSpeechManager::QUEUE);
 	virtual void fakeBidiString(byte *ltext, bool ignoreVerb, int ltextSize) const;
 	void wrapSegaCDText();
 	void debugMessage(const byte *msg);
 	virtual void showMessageDialog(const byte *msg);
+	
+#ifdef USE_TTS
+	void sayText(const Common::String &text, Common::TextToSpeechManager::Action action = Common::TextToSpeechManager::QUEUE) const;
+	void stopTextToSpeech() const;
+	void sayButtonText();
+#endif
 
 	virtual int convertMessageToString(const byte *msg, byte *dst, int dstSize);
 	int convertIntMessage(byte *dst, int dstSize, int var);
@@ -1873,6 +1898,11 @@ public:
 
 	// Exists both in V7 and in V72HE:
 	byte VAR_NUM_GLOBAL_OBJS = 0xFF;
+
+	byte VAR_LAST_FRAME_BURN_TIME = 0xFF;  // HE90+
+	byte VAR_LAST_FRAME_SCUMM_TIME = 0xFF; // HE90+
+
+	byte VAR_WINDEX_RUNNING = 0xFF;
 
 #ifdef USE_RGB_COLOR
 	// FM-Towns / PC-Engine specific

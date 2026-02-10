@@ -290,7 +290,7 @@ Common::List<Graphics::PixelFormat> OpenGLGraphicsManager::getSupportedFormats()
 		// BGR565
 		formats.push_back(Graphics::PixelFormat(2, 5, 6, 5, 0, 0, 5, 11, 0));
 		// ABGR1555
-		formats.push_back(Graphics::PixelFormat(2, 5, 5, 5, 1, 10, 5, 0, 15));
+		formats.push_back(Graphics::PixelFormat(2, 5, 5, 5, 1, 0, 5, 10, 15));
 		// ARGB1555
 		formats.push_back(Graphics::PixelFormat(2, 5, 5, 5, 1, 10, 5, 0, 15));
 		// BGRA5551
@@ -548,6 +548,10 @@ OSystem::TransactionError OpenGLGraphicsManager::endGFXTransaction() {
 					}
 
 					if (_oldState.graphicsMode != _currentState.graphicsMode) {
+						transactionError |= OSystem::kTransactionModeSwitchFailed;
+					}
+
+					if (_oldState.flags != _currentState.flags) {
 						transactionError |= OSystem::kTransactionModeSwitchFailed;
 					}
 
@@ -957,11 +961,22 @@ void OpenGLGraphicsManager::presentBuffer() {
 }
 
 Graphics::Surface *OpenGLGraphicsManager::lockScreen() {
+	// Autosave tries to lock the screen to get a screenshot
+	// Fail it like with old graphics3d backends
+	// TODO: Try to return a surface containing a screenshot
+#if defined(USE_OPENGL_GAME) || defined(USE_OPENGL_SHADERS)
+	if (_renderer3d) {
+		return nullptr;
+	}
+#endif
+
 	assert(_gameScreen);
 	return _gameScreen->getSurface();
 }
 
 void OpenGLGraphicsManager::unlockScreen() {
+	// In 3D mode, we always fail to lock the screen
+	// The code is never supposed to call unlockScreen
 	assert(_gameScreen);
 	_gameScreen->flagDirty();
 }
@@ -1702,12 +1717,6 @@ Surface *OpenGLGraphicsManager::createSurface(const Graphics::PixelFormat &forma
 		// hope for this to change anytime soon) we use pixel format
 		// conversion to a supported texture format.
 		return new TextureSurfaceRGB555();
-#ifdef SCUMM_LITTLE_ENDIAN
-	} else if (format == Graphics::PixelFormat(4, 8, 8, 8, 8, 24, 16, 8, 0)) { // RGBA8888
-#else
-	} else if (format == Graphics::PixelFormat(4, 8, 8, 8, 8, 0, 8, 16, 24)) { // ABGR8888
-#endif
-		return new TextureSurfaceRGBA8888Swap();
 	} else {
 		return new FakeTextureSurface(GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE, OpenGL::Texture::getRGBAPixelFormat(), format);
 	}
@@ -1780,7 +1789,7 @@ bool OpenGLGraphicsManager::getGLPixelFormat(const Graphics::PixelFormat &pixelF
 		glFormat = GL_RGB;
 		glType = GL_UNSIGNED_SHORT_5_6_5_REV;
 		return true;
-	} else if (pixelFormat == Graphics::PixelFormat(2, 5, 5, 5, 1, 10, 5, 0, 15)) { // ABGR1555
+	} else if (pixelFormat == Graphics::PixelFormat(2, 5, 5, 5, 1, 0, 5, 10, 15)) { // ABGR1555
 		glIntFormat = GL_RGB;
 		glFormat = GL_RGBA;
 		glType = GL_UNSIGNED_SHORT_1_5_5_5_REV;

@@ -21,8 +21,8 @@
 
 /*! \mainpage %ScummVM Source Reference
  *
- * These pages contains a cross referenced documentation for the %ScummVM source code,
- * generated with Doxygen (http://www.doxygen.org) directly from the source.
+ * These pages contain a cross referenced documentation for the %ScummVM source code,
+ * generated with Doxygen (https://www.doxygen.nl) directly from the source.
  * Currently not much is actually properly documented, but at least you can get an overview
  * of almost all the classes, methods and variables, and how they interact.
  */
@@ -73,13 +73,11 @@
 #include "backends/keymapper/keymapper.h"
 
 #ifdef USE_CLOUD
-#ifdef USE_LIBCURL
 #include "backends/cloud/cloudmanager.h"
-#include "backends/networking/curl/connectionmanager.h"
+#include "backends/networking/http/connectionmanager.h"
 #endif
 #ifdef USE_SDL_NET
 #include "backends/networking/sdl_net/localwebserver.h"
-#endif
 #endif
 
 #if defined(__DC__)
@@ -215,6 +213,12 @@ static Common::Error runGame(const Plugin *enginePlugin, OSystem &system, const 
 		// need to set this up before instance creation.
 		metaEngine.registerDefaultSettings(target);
 		err = metaEngine.createInstance(&system, &engine, game, meDescriptor);
+	}
+
+	if (err.getCode() == Common::kNoError) {
+		// Update add-on targets
+		if (engine != nullptr && engine->gameTypeHasAddOns())
+			err = engine->updateAddOns(&metaEngine);
 	}
 
 	// Check for errors
@@ -579,9 +583,11 @@ extern "C" int scummvm_main(int argc, const char * const argv[]) {
 		}
 		ConfMan.set("gfx_mode", gfxModeSetting, Common::ConfigManager::kSessionDomain);
 	}
+#ifdef ENABLE_EVENTRECORDER
 	if (settings.contains("disable-display")) {
-		ConfMan.setInt("disable-display", 1, Common::ConfigManager::kTransientDomain);
+		ConfMan.setInt("disable_display", 1, Common::ConfigManager::kTransientDomain);
 	}
+#endif
 	setupGraphics(system);
 
 	if (!configLoadStatus) {
@@ -652,7 +658,7 @@ extern "C" int scummvm_main(int argc, const char * const argv[]) {
 				"Select the folder containing the game's files, then tap **Choose**. \n"
 				"\n"
 				"Repeat steps 1 and 6 for each game."
-				), _("Ok"),
+				), _("OK"),
 				// I18N: A button caption to dismiss a message and read it later
 				_("Read Later"), Graphics::kTextAlignLeft);
 
@@ -677,7 +683,7 @@ extern "C" int scummvm_main(int argc, const char * const argv[]) {
 				"Select the sub-folder containing the game's files, then tap **Choose**."
 				"\n"
 				"Repeat steps 1 and 6 for each game."
-				), _("Ok"),
+				), _("OK"),
 				// I18N: A button caption to dismiss a message and read it later
 				_("Read Later"), Graphics::kTextAlignLeft);
 
@@ -690,7 +696,7 @@ extern "C" int scummvm_main(int argc, const char * const argv[]) {
 	}
 #endif
 
-#if defined(USE_CLOUD) && defined(USE_LIBCURL)
+#ifdef USE_CLOUD
 	CloudMan.init();
 	CloudMan.syncSaves();
 #endif
@@ -782,6 +788,9 @@ extern "C" int scummvm_main(int argc, const char * const argv[]) {
 				g_eventRec.init(recordFileName, GUI::EventRecorder::kRecorderUpdate);
 			} else if (recordMode == "playback") {
 				g_eventRec.init(recordFileName, GUI::EventRecorder::kRecorderPlayback);
+			} else if (recordMode == "fast_playback") {
+				g_eventRec.init(recordFileName, GUI::EventRecorder::kRecorderPlayback);
+				g_eventRec.setFastPlayback(true);
 			} else if ((recordMode == "info") && (!recordFileName.empty())) {
 				Common::PlaybackFile record;
 				record.openRead(recordFileName);
@@ -883,15 +892,13 @@ extern "C" int scummvm_main(int argc, const char * const argv[]) {
 			launcherDialog();
 		}
 	}
-#ifdef USE_CLOUD
 #ifdef USE_SDL_NET
 	Networking::LocalWebserver::destroy();
 #endif
-#ifdef USE_LIBCURL
+#ifdef USE_CLOUD
 	Networking::ConnectionManager::destroy();
 	//I think it's important to destroy it after ConnectionManager
 	Cloud::CloudManager::destroy();
-#endif
 #endif
 	PluginManager::destroy();
 	GUI::GuiManager::destroy();

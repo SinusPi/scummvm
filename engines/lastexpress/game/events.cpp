@@ -39,7 +39,7 @@ MessageManager::MessageManager(LastExpressEngine *engine) {
 }
 
 MessageManager::~MessageManager() {
-	delete _autoMessages;
+	free(_autoMessages);
 	_autoMessages = nullptr;
 }
 
@@ -65,9 +65,9 @@ void MessageManager::addEvent(int channel, int x, int y, int flags) {
 	if (_numEventsInQueue >= 127)
 		return;
 
-	if (channel == 3) {
+	if (channel == kEventChannelTimer) {
 		_engine->setEventTickInternal(true);
-	} else if (channel == 1) {
+	} else if (channel == kEventChannelMouse) {
 		if ((flags & kMouseFlagLeftButton) != 0) {
 			// Originally _engine->mouseSetLeftClicked(true); was called from here,
 			// but it's been moved under the "if" because this lead to fake double
@@ -223,7 +223,7 @@ void MessageManager::forceMessage(Message *msg) {
 		(_engine->getLogicManager()->*_messageHandles[msg->receiver])(msg);
 }
 
-void MessageManager::reset() {
+void MessageManager::clearMessageQueue() {
 	Common::StackLock lock(*_engine->_soundMutex);
 	_numMsgsInQueue = 0;
 	_nextMsgIndex = 0;

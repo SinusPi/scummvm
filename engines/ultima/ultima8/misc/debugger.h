@@ -22,10 +22,6 @@
 #ifndef ULTIMA_ULTIMA8_ENGINE_DEBUGGER_H
 #define ULTIMA_ULTIMA8_ENGINE_DEBUGGER_H
 
-#include "ultima/ultima8/misc/common_types.h"
-#include "ultima/shared/std/containers.h"
-#include "common/debug.h"
-#include "common/stream.h"
 #include "gui/debugger.h"
 
 namespace Ultima {
@@ -66,6 +62,7 @@ private:
 	bool cmdMaxStats(int argc, const char **argv);
 	bool cmdHeal(int argc, const char **argv);
 	bool cmdInvincibility(int argc, const char **argv);
+	bool cmdHackMover(int argc, const char **argv);
 
 	// Game Map Gump
 	bool cmdHighlightItems(int argc, const char **argv);
@@ -111,7 +108,7 @@ private:
 	bool cmdObjectInfo(int argc, const char **argv);
 
 	// Quick Avatar Mover Process
-	bool cmdQuarterSpeed(int argc, const char **argv);
+	bool cmdQuickMover(int argc, const char **argv);
 	bool cmdClipping(int argc, const char **argv);
 
 	// UCMachine

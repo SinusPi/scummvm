@@ -353,6 +353,8 @@ void Room703::parser() {
 	} // talkFl && player_said("MONK #4")
 
 	else if (lookFl && player_said("GRATE")) {
+		player_set_commands_allowed(false);
+		
 		switch (_G(kernel).trigger) {
 		case -1: {
 			int32 keyValue = 0;
@@ -613,7 +615,7 @@ void Room703::parser() {
 			player_set_commands_allowed(true);
 			adv_kill_digi_between_rooms(false);
 			digi_play_loop("950_s39", 3, 255, -1, -1);
-			_G(game).new_room = 707;
+			_G(game).setRoom(707);
 
 			break;
 
@@ -639,7 +641,7 @@ void Room703::parser() {
 		case 4:
 			adv_kill_digi_between_rooms(false);
 			digi_play_loop("950_s39", 3, 255, -1, -1);
-			_G(game).new_room = 702;
+			_G(game).setRoom(702);
 
 			break;
 
@@ -655,7 +657,7 @@ void Room703::parser() {
 		case 4:
 			adv_kill_digi_between_rooms(false);
 			digi_play_loop("950_s39", 3, 255, -1, -1);
-			_G(game).new_room = 704;
+			_G(game).setRoom(704);
 
 			break;
 
@@ -671,7 +673,7 @@ void Room703::parser() {
 		case 4:
 			adv_kill_digi_between_rooms(false);
 			digi_play_loop("950_s39", 3, 255, -1, -1);
-			_G(game).new_room = 706;
+			_G(game).setRoom(706);
 
 			break;
 
@@ -694,7 +696,7 @@ void Room703::parser() {
 			case 2:
 				adv_kill_digi_between_rooms(false);
 				digi_play_loop("950_s39", 3, 255, -1, -1);
-				_G(game).new_room = 702;
+				_G(game).setRoom(702);
 
 			default:
 				break;
@@ -1182,7 +1184,7 @@ void Room703::useWheelOnNiche(int32 trigger, int val1) {
 	case 112:
 		adv_kill_digi_between_rooms(false);
 		digi_play_loop("950_s39", 3, 255, -1, -1);
-		_G(game).new_room = 705;
+		_G(game).setRoom(705);
 
 		break;
 

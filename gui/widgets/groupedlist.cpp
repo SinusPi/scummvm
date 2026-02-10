@@ -213,6 +213,12 @@ void GroupedListWidget::setSelected(int item) {
 
 		_selectedItem = findDataIndex(item);
 
+		// Clear previous selections and mark only this item
+		if (_multiSelectEnabled) {
+			clearSelection();
+			markSelectedItem(_selectedItem, true);
+		}
+
 		// Notify clients that the selection changed.
 		sendCommand(kListSelectionChangedCmd, _selectedItem);
 
@@ -231,30 +237,72 @@ void GroupedListWidget::handleMouseDown(int x, int y, int button, int clickCount
 
 	// First check whether the selection changed
 	int newSelectedItem = findItem(x, y);
-	if (_selectedItem != newSelectedItem && newSelectedItem != -1) {
-		if (_listIndex[newSelectedItem] > -1) {
-			if (_editMode)
-				abortEditMode();
-			_selectedItem = newSelectedItem;
+	if (newSelectedItem == -1)
+		return;
+
+	if (isGroupHeader(_listIndex[newSelectedItem])) {
+		int groupID = indexToGroupID(_listIndex[newSelectedItem]);
+		int oldSelection = getSelected();
+		_selectedItem = -1;
+		toggleGroup(groupID);
+		if (oldSelection != -1) {
+			_selectedItem = findDataIndex(oldSelection);
 			sendCommand(kListSelectionChangedCmd, _selectedItem);
-		} else if (isGroupHeader(_listIndex[newSelectedItem])) {
-			int groupID = indexToGroupID(_listIndex[newSelectedItem]);
-			int oldSelection = getSelected();
-			_selectedItem = -1;
-			toggleGroup(groupID);
-			// Try to preserve the selection, but without scrolling
-			if (oldSelection != -1) {
-				_selectedItem = findDataIndex(oldSelection);
-				sendCommand(kListSelectionChangedCmd, _selectedItem);
-			}
 		}
+		markAsDirty();
+		return;
 	}
 
 	// TODO: Determine where inside the string the user clicked and place the
 	// caret accordingly.
 	// See _editScrollOffset and EditTextWidget::handleMouseDown.
-	markAsDirty();
+	if (_editMode)
+		abortEditMode();
 
+	int dataIndex = _listIndex[newSelectedItem];
+	if (dataIndex < 0)
+		return;
+
+	// Get modifier keys
+	int modifiers = g_system->getEventManager()->getModifierState();
+	bool ctrlClick = (modifiers & Common::KBD_CTRL) != 0;
+	bool shiftClick = (modifiers & Common::KBD_SHIFT) != 0;
+
+	// Only handle multi-select if it's enabled
+	if (_multiSelectEnabled && (shiftClick || ctrlClick)) {
+		if (shiftClick && _lastSelectionStartItem != -1) {
+			// Shift+Click: Select range in terms of underlying data indices
+			int startListIndex = _lastSelectionStartItem;
+			int endListIndex = newSelectedItem;              
+			selectItemRange(startListIndex, endListIndex);
+			_selectedItem = newSelectedItem;
+			_lastSelectionStartItem = newSelectedItem;
+			sendCommand(kListSelectionChangedCmd, _selectedItem);
+		} else if (ctrlClick) {
+			// Ctrl+Click: toggle selection for the underlying data index
+			if (isItemSelected(newSelectedItem)) {
+				markSelectedItem(newSelectedItem, false);
+			} else {
+				markSelectedItem(newSelectedItem, true);
+				_selectedItem = newSelectedItem;
+				_lastSelectionStartItem = newSelectedItem;
+			}
+			sendCommand(kListSelectionChangedCmd, _selectedItem);
+		}
+	} else {
+		// Regular click: clear selection and select only this underlying item
+		clearSelection();
+		_selectedItem = newSelectedItem;
+		markSelectedItem(newSelectedItem, true);
+		_lastSelectionStartItem = newSelectedItem;
+		sendCommand(kListSelectionChangedCmd, _selectedItem);
+	}
+
+	// Notify clients if an item was clicked
+	if (newSelectedItem >= 0)
+		sendCommand(kListItemSingleClickedCmd, _selectedItem);
+
+	markAsDirty();
 }
 
 void GroupedListWidget::handleMouseUp(int x, int y, int button, int clickCount) {
@@ -341,32 +389,40 @@ void GroupedListWidget::drawWidget() {
 										ThemeEngine::kWidgetBackgroundBorder);
 
 	// Draw the list items
+	const int lineHeight = kLineHeight + _itemSpacing;
+	const int indentSpacing = g_gui.getFontHeight();
 	for (i = 0, pos = _currentPos; i < _entriesPerPage && pos < len; i++, pos++) {
-		const int y = _y + _topPadding + kLineHeight * i;
-		const int fontHeight = g_gui.getFontHeight();
+		const int y = _y + _topPadding + lineHeight * i;
 		ThemeEngine::TextInversionState inverted = ThemeEngine::kTextInversionNone;
 #if 0
 		ThemeEngine::FontStyle bold = ThemeEngine::kFontStyleBold;
 #endif
 
-		// Draw the selected item inverted, on a highlighted background.
-		if (_selectedItem == pos)
-			inverted = _inversion;
+		// For grouped lists, only real items (non-headers) may be highlighted.
+		int mapped = _listIndex[pos];
+		bool isRealItem = (mapped >= 0);
+		if (isRealItem) {
+			if (isItemSelected(pos))
+				inverted = _inversion;
+		}
+
+		ThemeEngine::WidgetStateInfo itemState = getItemState(pos);
 
 		Common::Rect r(getEditRect());
 		int pad = _leftPadding;
 		int rtlPad = (_x + r.left + _leftPadding) - (_x + _hlLeftPadding);
 
-		if (isGroupHeader(_listIndex[pos])) {
-			int groupID = indexToGroupID(_listIndex[pos]);
+		// Group header / grouped list indentation logic
+		if (isGroupHeader(mapped)) {
+    		int groupID = indexToGroupID(mapped);
 #if 0
 			bold = ThemeEngine::kFontStyleBold;
 #endif
-			r.left += fontHeight + _leftPadding;
-			g_gui.theme()->drawFoldIndicator(Common::Rect(_x + _hlLeftPadding + _leftPadding, y, _x + fontHeight + _leftPadding, y + fontHeight), _groupExpanded[groupID]);
+			r.left += indentSpacing + _leftPadding;
+			g_gui.theme()->drawFoldIndicator(Common::Rect(_x + _hlLeftPadding + _leftPadding, y, _x + indentSpacing + _leftPadding, y + lineHeight), _groupExpanded[groupID]);
 			pad = 0;
 		} else if (_groupsVisible) {
-			r.left += fontHeight + _leftPadding;
+			r.left += indentSpacing + _leftPadding;
 			r.right -= _rightPadding;
 			pad = 0;
 		}
@@ -374,12 +430,12 @@ void GroupedListWidget::drawWidget() {
 		// If in numbering mode & not in RTL based GUI, we first print a number prefix
 		if (_numberingMode != kListNumberingOff && g_gui.useRTL() == false) {
 			buffer = Common::String::format("%2d. ", (pos + _numberingMode));
-			g_gui.theme()->drawText(Common::Rect(_x + _hlLeftPadding, y, _x + r.left + _leftPadding, y + fontHeight),
-									buffer, _state, _drawAlign, inverted, _leftPadding, true);
+			g_gui.theme()->drawText(Common::Rect(_x + _hlLeftPadding, y, _x + r.left + _leftPadding, y + lineHeight),
+									buffer, itemState, _drawAlign, inverted, _leftPadding, true);
 			pad = 0;
 		}
 
-		Common::Rect r1(_x + r.left, y, _x + r.right, y + fontHeight);
+		Common::Rect r1(_x + r.left, y, _x + r.right, y + lineHeight);
 
 		if (g_gui.useRTL()) {
 			if (_scrollBar->isVisible()) {
@@ -401,9 +457,8 @@ void GroupedListWidget::drawWidget() {
 			buffer = _list[pos];
 		}
 
-		drawFormattedText(r1, buffer, _state, _drawAlign, inverted, pad, true, color);
+		drawFormattedText(r1, buffer, itemState, _drawAlign, inverted, pad, true, color);
 
-		// If in numbering mode & using RTL layout in GUI, we print a number suffix after drawing the text
 		if (_numberingMode != kListNumberingOff && g_gui.useRTL()) {
 			buffer = Common::String::format(" .%2d", (pos + _numberingMode));
 
@@ -412,9 +467,11 @@ void GroupedListWidget::drawWidget() {
 			r2.left = r1.right;
 			r2.right = r1.right + rtlPad;
 
-			g_gui.theme()->drawText(r2, buffer, _state, _drawAlign, inverted, _leftPadding, true);
+			g_gui.theme()->drawText(r2, buffer, itemState, _drawAlign, inverted, _leftPadding, true);
 		}
 	}
+	if (_editMode)
+		EditableWidget::drawWidget();
 }
 
 void GroupedListWidget::setFilter(const Common::U32String &filter, bool redraw) {
@@ -486,6 +543,9 @@ void GroupedListWidget::setFilter(const Common::U32String &filter, bool redraw) 
 		// (I am borrowing these "ideas" from the NSBox class in Cocoa :).
 		g_gui.scheduleTopDialogRedraw();
 	}
+}
+ThemeEngine::WidgetStateInfo GroupedListWidget::getItemState(int item) const {
+	return _state;
 }
 
 } // End of namespace GUI

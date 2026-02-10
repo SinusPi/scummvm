@@ -41,6 +41,9 @@ enum global_triggers {
 };
 
 class Vars : public M4::Vars {
+private:
+	static void spanish_ascii_converter_proc(char *string);
+
 protected:
 	void main_cold_data_init() override;
 
@@ -60,6 +63,9 @@ public:
 	Common::String _string2;
 	Common::String _string3;
 	int _ripSketching = 0;
+	TextScrn *_messageScreen = nullptr;
+	int32 _messageLogTrigger = 0;
+	int32 _messageLogResult = 0;
 
 public:
 	Vars();

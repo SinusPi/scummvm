@@ -341,7 +341,7 @@ void SearchSet::insert(const Node &node) {
 }
 
 void SearchSet::add(const String &name, Archive *archive, int priority, bool autoFree) {
-	if (find(name) == _list.end()) {
+	if (_ignoreClashes || (find(name) == _list.end())) {
 		Node node(priority, name, archive, autoFree);
 		insert(node);
 	} else {
@@ -358,8 +358,14 @@ void SearchSet::addDirectory(const String &name, const Path &directory, int prio
 }
 
 void SearchSet::addDirectory(const String &name, const FSNode &dir, int priority, int depth, bool flat) {
-	if (!dir.exists() || !dir.isDirectory())
+	if (!dir.exists()) {
+		warning("SearchSet::addDirectory: %s does not exist.", name.c_str());
 		return;
+	}
+	if (!dir.isDirectory()) {
+		warning("SearchSet::addDirectory: %s is not a directory.", name.c_str());
+		return;
+	}
 
 	add(name, new FSDirectory(dir, depth, flat, _ignoreClashes), priority);
 }
@@ -627,7 +633,7 @@ void SearchManager::clear() {
 	if (g_system)
 		g_system->addSysArchivesToSearchSet(*this, -1);
 
-#ifndef __ANDROID__
+#if !defined(__ANDROID__) && !defined(PSP2)
 	// Add the current dir as a very last resort.
 	// See also bug #3984.
 	// But don't do this for Android platform, since it may lead to crashes

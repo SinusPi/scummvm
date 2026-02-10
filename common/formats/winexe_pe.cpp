@@ -274,6 +274,9 @@ WinResources::VersionInfo *PEResources::parseVersionInfo(SeekableReadStream *res
 		uint16 type = res->readUint16LE();
 		uint16 c;
 
+		if (res->eos())
+			break;
+
 		Common::U32String key;
 		while ((c = res->readUint16LE()) != 0 && !res->eos())
 			key += c;
@@ -286,8 +289,11 @@ WinResources::VersionInfo *PEResources::parseVersionInfo(SeekableReadStream *res
 
 		if (type != 0) {	// text
 			Common::U32String value;
-			for (int j = 0; j < valLen; j++)
-				value += res->readUint16LE();
+			for (int j = 0; j < valLen; j++) {
+				uint16 ch = res->readUint16LE();
+				if (ch)
+					value += ch;
+			}
 
 			info->hash.setVal(key.encode(), value);
 		} else {
